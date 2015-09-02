@@ -2,7 +2,7 @@
 #PBS -S /bin/bash
 #PBS -N Planck_TT_TE_EE_lowP_lensing_ext_varyingTvir
 #PBS -j eo
-#PBS -l mppwidth=72,walltime=05:00:00
+#PBS -l mppwidth=72,walltime=00:10:00
 #PBS -q premium
 #PBS -A m1871
 
