@@ -16,6 +16,29 @@ def compute_tau(density,nf):
     tau = sp.integrate.cumtrapz(fn,dx=(d[-1]-d[0])/len(d),initial=0)
     return z,d,tau
 
+def comopute_ndotq():
+    nf = get_int_box_data('nf')
+    density = get_int_box_data('density')
+    # nf, density
+ # Find the density and ionization weighting for the velocity field q
+    q0 = (1+nf)*(1+density)
+    nf = None; density = None
+    # q0
+    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
+ # Get the spatial coordinates of all box cells
+    xyzgd = get_xyz_gd()
+    rgd = np.sqrt(xyzgd[0]*xyzgd[0]+xyzgd[1]*xyzgd[1]+xyzgd[2]*xyzgd[2])
+    # q0, xyzgd (x3), rgd
+ # Find the peculiar velocity 
+    ndotq = np.zeros_like(q0)
+    for ii,vii in enumerate(('vx','vy','vz')):
+        vi = get_int_box_data(vii)
+        ndotq += q0*vi*xyzgd[ii]/rgd
+    # q0, xyzgd (x3), rgd, ndotq, vi
+    vi = None; q0=None; xyzgd=None; rgd=None
+    if True: np.save('ndotq',ndotq)
+    return ndotq
+
 # old kSZ code
 def compute_kSZ():
     nf = get_int_box_data('nf')
@@ -56,6 +79,29 @@ def compute_kSZ():
     fn = None
     return dTkSZ 
 
+def get_xyz_gd():
+    box = pms['shape']
+    xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
+    ycd = np.linspace(-box[1]/2,box[1]/2,num=box[1])
+    zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
+    xyzgd = np.meshgrid(xcd,ycd,zcd)
+    xcd,ycd,zcd = None,None,None
+    return xyzgd
+
+def get_nxnyr_gd():
+    xgd,ygd,zgd = get_xyz_gd()
+    rgd = np.sqrt(xgd*xgd+ygd*ygd+zgd*zgd)
+    nygd = ygd/xgd
+    nycd = np.linspace(np.amin(nygd),np.amax(nygd),pms['shape'][1])
+    nygd = None; ygd=None
+    nxgd = xgd/rgd
+    nxcd = np.linspace(np.amin(nxgd),np.amax(nxgd),pms['shape'][0])
+    nxgd = None; xgd=None
+    rcd = np.linspace(np.amin(rgd),np.amax(rgd),pms['shape'][2])
+    rgd = None
+    ngd = np.meshgrid(nxcd,nycd,rcd)
+    return ngd
+
 # Function to find indices from a position
 def invert_linspace(a,b,n,x,c=0):
     """a,b,n are the inputs to linspace. x is the point you want to invert.
@@ -71,62 +117,39 @@ def get_xyz_id(xp,box,cs=(0,0,0)):
     zid = invert_linspace(-box[2]/2,box[2]/2,box[2],xp[2],cs[2])
     return (xid,yid,zid)
 
-def compute_kSZ2():
-    nf = get_int_box_data('nf')
-    density = get_int_box_data('density')
-    # nf, density
- # Find the density and ionization weighting for the velocity field q
-    q0 = (1+nf)*(1+density)
-    nf = None; density = None
-    # q0
-    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
- # Get the spatial coordinates of all box cells
-    box = q0.shape
-    xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
-    ycd = np.linspace(-box[1]/2,box[1]/2,num=box[1])
-    zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
-    xyzgd = np.meshgrid(xcd,ycd,zcd)
-    xcd,ycd,zcd = None,None,None
-    rgd = np.sqrt(xyzgd[0]*xyzgd[0]+xyzgd[1]*xyzgd[1]+xyzgd[2]*xyzgd[2])
-    # q0, xyzgd (x3), rgd
- # Find the peculiar velocity 
-    ndotq = np.zeros_like(q0)
-    for ii,vii in enumerate(('vx','vy','vz')):
-        vi = get_int_box_data(vii)
-        ndotq += q0*vi*xyzgd[ii]/rgd
-    # q0, xyzgd (x3), rgd, ndotq, vi
-    vi = None; q0=None; 
-    # xyzgd (x3), rgd, ndotq    
- # Get tau
-    nf = get_int_box_data('nf')
-    density = get_int_box_data('density')
-    z,d,tau = compute_tau(density,nf)
-    # xyzgd (x3), ndotq, nf, density, tau
-    nf=None; density=None
-    # xyzgd (x3), ndotq, tau
+def regrid(ndotq):
  # create new nx,ny,r coordinate grids
-    nxgd = xyzgd[0]/rgd
-    nxcd = np.linspace(np.amin(nxgd),np.amax(nxgd),pms['shape'][0])
-    nxgd = None
-    nygd = xyzgd[1]/xyzgd[0]
-    nycd = np.linspace(np.amin(nygd),np.amax(nygd),pms['shape'][1])
-    nygd = None
-    rcd = np.linspace(np.amin(rgd),np.amax(rgd),pms['shape'][2])
-    xyzgd = None
-    ngd = np.meshgrid(nxcd,nycd,rcd)
+    ngd = get_nxnyr_gd()
  # find the xyz values that correspond to the nx,ny,r coordinate grid
     n_xcd = ngd[0]*ngd[2]
     n_ycd = ngd[1]*ngd[0]
     n_zcd = np.sqrt(ngd[2]*ngd[2] - ngd[0]*ngd[0] - ngd[1]*ngd[1])
+    ngd=None
  # create the new grid of ndotq
-    ndotq_ncd = np.zeros(pms['shape'])#[len(nxcd),len(nycd),len(rcd)]
-    for index in np.ndindex(ndotq.shape):
-        xyz_id = get_xyz_id((ngd[0][index],ngd[1][index],ngd[2][index]),pms['shape'])
-        if index[0]%100==0 and index[1]==0 and index[2]==0: 
+    ndotq_ncd = np.zeros(pms['shape'])
+    for ind in np.ndindex(ndotq.shape):
+        xyz_id = get_xyz_id((n_xcd[ind],n_ycd[ind],n_zcd[ind]),pms['shape'])
+        if ind[0]%100==0 and ind[1]==0 and ind[2]==0: 
             print index, xyz_id
-        ndotq_ncd[index] = ndotq[xyz_id]
-    ndotq=None;
-    # ngd (x3), ndotq_ncd, tau
+        ndotq_ncd[ind] = ndotq[xyz_id]
+    return ndotq_ncd
+
+def compute_kSZ2(ndotq=None):
+    if ndotq==None: ndotq = compute_ndotq(density,nf)
+    print "Have ndotq!"
+    # ndotq    
+ # Get tau
+    nf = get_int_box_data('nf')
+    density = get_int_box_data('density')
+    z,d,tau = compute_tau(density,nf)
+    # ndotq, nf, density, tau
+    nf=None; density=None
+    # ndotq, tau
+    print "Beginning regrid!"
+    ndotq_ncd = regrid(ndotq)
+    ndotq=None
+    print "Regrid complete!"
+    # ndotq_ncd, tau
  # Compute the kSZ signal
     fn = np.exp(-tau)*ndotq_ncd/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']*(1+z) # (Mpc/s)(m/s)^-1(m/Mpc)(K) = K
     dTkSZ = sp.integrate.trapz(fn,x=tau,axis=2) # K
