@@ -16,7 +16,7 @@ def compute_tau(density,nf):
     tau = sp.integrate.cumtrapz(fn,dx=(d[-1]-d[0])/len(d),initial=0)
     return z,d,tau
 
-def comopute_ndotq():
+def compute_ndotq():
     nf = get_int_box_data('nf')
     density = get_int_box_data('density')
     # nf, density
@@ -80,9 +80,10 @@ def compute_kSZ():
     return dTkSZ 
 
 def get_xyz_gd():
-    box = pms['shape']
+    box = cfg.pms['shape']
     xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
     ycd = np.linspace(-box[1]/2,box[1]/2,num=box[1])
+    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
     zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
     xyzgd = np.meshgrid(xcd,ycd,zcd)
     xcd,ycd,zcd = None,None,None
@@ -92,12 +93,12 @@ def get_nxnyr_gd():
     xgd,ygd,zgd = get_xyz_gd()
     rgd = np.sqrt(xgd*xgd+ygd*ygd+zgd*zgd)
     nygd = ygd/xgd
-    nycd = np.linspace(np.amin(nygd),np.amax(nygd),pms['shape'][1])
+    nycd = np.linspace(np.amin(nygd),np.amax(nygd),cfg.pms['shape'][1])
     nygd = None; ygd=None
     nxgd = xgd/rgd
-    nxcd = np.linspace(np.amin(nxgd),np.amax(nxgd),pms['shape'][0])
+    nxcd = np.linspace(np.amin(nxgd),np.amax(nxgd),cfg.pms['shape'][0])
     nxgd = None; xgd=None
-    rcd = np.linspace(np.amin(rgd),np.amax(rgd),pms['shape'][2])
+    rcd = np.linspace(np.amin(rgd),np.amax(rgd),cfg.pms['shape'][2])
     rgd = None
     ngd = np.meshgrid(nxcd,nycd,rcd)
     return ngd
@@ -126,16 +127,17 @@ def regrid(ndotq):
     n_zcd = np.sqrt(ngd[2]*ngd[2] - ngd[0]*ngd[0] - ngd[1]*ngd[1])
     ngd=None
  # create the new grid of ndotq
-    ndotq_ncd = np.zeros(pms['shape'])
+    ndotq_ncd = np.zeros(cfg.pms['shape'])
+    print "Starting loop!"
     for ind in np.ndindex(ndotq.shape):
-        xyz_id = get_xyz_id((n_xcd[ind],n_ycd[ind],n_zcd[ind]),pms['shape'])
+        xyz_id = get_xyz_id((n_xcd[ind],n_ycd[ind],n_zcd[ind]),cfg.pms['shape'])
         if ind[0]%100==0 and ind[1]==0 and ind[2]==0: 
-            print index, xyz_id
+            print ind, xyz_id
         ndotq_ncd[ind] = ndotq[xyz_id]
     return ndotq_ncd
 
 def compute_kSZ2(ndotq=None):
-    if ndotq==None: ndotq = compute_ndotq(density,nf)
+    if ndotq==None: ndotq = compute_ndotq()
     print "Have ndotq!"
     # ndotq    
  # Get tau
@@ -226,6 +228,8 @@ if __name__=='__main__':
     # plt.plot(z,tau); plt.show()
 
     # test for compute_kSZ()
+    # ndotq = np.load('ndotq.npy')
+    # dTkSZ = compute_kSZ2(ndotq)
     dTkSZ = compute_kSZ2()
     plt.imshow(dTkSZ,origin='lower')
     plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
