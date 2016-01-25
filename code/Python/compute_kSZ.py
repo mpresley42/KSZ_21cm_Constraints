@@ -4,6 +4,7 @@ import scipy as sp
 import scipy.integrate
 from load_data import *
 from redshift import *
+from scipy.interpolate import griddata
 
 def compute_tau(density,nf):
     z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
@@ -19,12 +20,12 @@ def compute_kSZ():
     nf = get_int_box_data('nf')
     density = get_int_box_data('density')
     # nf, density
-# Find the density and ionization weighting for the velocity field q
+ # Find the density and ionization weighting for the velocity field q
     q0 = (1+nf)*(1+density)
     nf = None; density = None
     # q0
+ # Get the spatial coordinates of all box cells
     z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
-# Get the spatial coordinates of all box cells
     box = q0.shape
     xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
     ycd = np.linspace(-box[1]/2,box[1]/2,num=box[1])
@@ -33,7 +34,7 @@ def compute_kSZ():
     xcd,ycd,zcd = None,None,None
     rgd = np.sqrt(xyzgd[0]*xyzgd[0]+xyzgd[1]*xyzgd[1]+xyzgd[2]*xyzgd[2])
     # q0, xyzgd (x3), rgd
-# Find the peculiar velocity 
+ # Find the peculiar velocity 
     ndotq = np.zeros_like(q0)
     for ii,vii in enumerate(('vx','vy','vz')):
         vi = get_int_box_data(vii)
@@ -41,16 +42,118 @@ def compute_kSZ():
     # q0, xyzgd (x3), rgd, ndotq, vi
     vi = None; q0=None; rgd=None; xyzgd=None;
     # ndotq
-# Get tau
+ # Get tau
     nf = get_int_box_data('nf')
     density = get_int_box_data('density')
     z,d,tau = compute_tau(density,nf)
     # ndotq, nf, density, tau
     nf=None; density=None
     # ndotq, tau
-# Compute the kSZ signal
+ # Compute the kSZ signal
     fn = np.exp(-tau)*ndotq/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']*(1+z) # (Mpc/s)(m/s)^-1(m/Mpc)(K) = K
     dTkSZ = sp.integrate.trapz(fn,x=tau,axis=2) # K
+    fn = None
+    return dTkSZ 
+
+def compute_kSZ2():
+    nf = get_int_box_data('nf')
+    density = get_int_box_data('density')
+    # nf, density
+ # Find the density and ionization weighting for the velocity field q
+    q0 = (1+nf)*(1+density)
+    nf = None; density = None
+    # q0
+    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
+ # Get the spatial coordinates of all box cells
+    box = q0.shape
+    xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
+    ycd = np.linspace(-box[1]/2,box[1]/2,num=box[1])
+    zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
+    xyzgd = np.meshgrid(xcd,ycd,zcd)
+    xcd,ycd,zcd = None,None,None
+    rgd = np.sqrt(xyzgd[0]*xyzgd[0]+xyzgd[1]*xyzgd[1]+xyzgd[2]*xyzgd[2])
+    # q0, xyzgd (x3), rgd
+ # Find the peculiar velocity 
+    ndotq = np.zeros_like(q0)
+    for ii,vii in enumerate(('vx','vy','vz')):
+        vi = get_int_box_data(vii)
+        ndotq += q0*vi*xyzgd[ii]/rgd
+    # q0, xyzgd (x3), rgd, ndotq, vi
+    vi = None; q0=None; 
+    # xyzgd (x3), rgd, ndotq    
+ # Get tau
+    nf = get_int_box_data('nf')
+    density = get_int_box_data('density')
+    z,d,tau = compute_tau(density,nf)
+    # xyzgd (x3), ndotq, nf, density, tau
+    nf=None; density=None
+    # xyzgd (x3), ndotq, tau
+ # Convert to spherical coords
+    thgd = np.arccos(xyzgd[2]/rgd)
+    phgd = np.arctan(xyzgd[1]/xyzgd[0])
+    xyzgd=None;
+    # rgd, thgd, phgd, ndotq, tau
+    thcd = np.linspace(np.amin(thgd),np.amax(thgd),cfg.pms['shape'][0])
+    phcd = np.linspace(np.amin(phgd),np.amax(phgd),cfg.pms['shape'][1])
+    rcd = np.linspace(np.amin(rgd),np.amax(rgd),cfg.pms['shape'][2])
+    ndotq_s = griddata((thgd, phgd, rgd), ndotq, (thcd, phcd, rcd), method='linear')
+    ndotq=None;
+    # rgd, thgd, phgd, ndotq_s, tau
+ # Compute the kSZ signal
+    fn = np.exp(-tau)*ndotq_s/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']*(1+z) # (Mpc/s)(m/s)^-1(m/Mpc)(K) = K
+    dTkSZ = sp.integrate.trapz(fn,x=tau,axis=2) # K
+    # ^ an array w/ axes theta and phi
+    fn = None
+    return dTkSZ 
+
+def compute_kSZ3():
+    nf = get_int_box_data('nf')
+    density = get_int_box_data('density')
+    # nf, density
+ # Find the density and ionization weighting for the velocity field q
+    q0 = (1+nf)*(1+density)
+    nf = None; density = None
+    # q0
+    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
+ # Get the spatial coordinates of all box cells
+    box = q0.shape
+    xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
+    ycd = np.linspace(-box[1]/2,box[1]/2,num=box[1])
+    zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
+    xyzgd = np.meshgrid(xcd,ycd,zcd)
+    xcd,ycd,zcd = None,None,None
+    rgd = np.sqrt(xyzgd[0]*xyzgd[0]+xyzgd[1]*xyzgd[1]+xyzgd[2]*xyzgd[2])
+    # q0, xyzgd (x3), rgd
+ # Find the peculiar velocity 
+    ndotq = np.zeros_like(q0)
+    for ii,vii in enumerate(('vx','vy','vz')):
+        vi = get_int_box_data(vii)
+        ndotq += q0*vi*xyzgd[ii]/rgd
+    # q0, xyzgd (x3), rgd, ndotq, vi
+    vi = None; q0=None; 
+    # xyzgd (x3), rgd, ndotq    
+ # Get tau
+    nf = get_int_box_data('nf')
+    density = get_int_box_data('density')
+    z,d,tau = compute_tau(density,nf)
+    # xyzgd (x3), ndotq, nf, density, tau
+    nf=None; density=None
+    # xyzgd (x3), ndotq, tau
+ # Convert to nx,ny,r coords
+    nxgd = xyzgd[0]/rgd
+    nygd = xyzgd[1]/xyzgd[0]
+    xyzgd=None;
+    # rgd, nxgd, nygd, ndotq, tau
+    nxcd = np.linspace(np.amin(nxgd),np.amax(nxgd),cfg.pms['shape'][0])
+    phcd = np.linspace(np.amin(nygd),np.amax(nygd),cfg.pms['shape'][1])
+    rcd = np.linspace(np.amin(rgd),np.amax(rgd),cfg.pms['shape'][2])
+    ndotq_s = griddata((nxgd, nygd, rgd), ndotq, (nxgd, nygd, rcd), method='linear')
+    ndotq=None;
+    # rgd, nxgd, nygd, ndotq_s, tau
+ # Compute the kSZ signal
+    fn = np.exp(-tau)*ndotq_s/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']*(1+z) # (Mpc/s)(m/s)^-1(m/Mpc)(K) = K
+    dTkSZ = sp.integrate.trapz(fn,x=tau,axis=2) # K
+    # ^ an array w/ axes theta and phi
     fn = None
     return dTkSZ 
 
@@ -83,7 +186,18 @@ def pspec_2d(kx,ky,ft,n=100):
     return kbins,pspec
 
 def compute_kSZ_pspec(dTkSZ):
-    x = np.arange(cfg.pms['xyMpc']) - cfg.pms['xyMpc']/2
+    #x = np.arange(cfg.pms['xyMpc']) - cfg.pms['xyMpc']/2
+ # Get the spatial xyz coords
+    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
+    box = cfg.pms['shape']
+    x = np.linspace(-box[0]/2,box[0]/2,num=box[0])
+    y = np.linspace(-box[1]/2,box[1]/2,num=box[1])
+    z = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
+ # Get the nx, ny coords
+    R = np.sqrt(x*x + y*y + z*z)
+    nx = x/R
+    ny = y/R
+ # Find the Fourier Transform
     kx,ky,dTkSZ_FT = fft_2d(x,x,dTkSZ) # [K][Mpc]^2
     dTkSZ_FT = np.abs(dTkSZ_FT)    
     if False:
@@ -91,7 +205,7 @@ def compute_kSZ_pspec(dTkSZ):
         plt.imshow(np.log(dTkSZ_FT),cmap='Blues',origin='lower')
         cb=plt.colorbar();cb.set_label(r"$Log(\Delta \widetildeT_{kSZ})$",fontsize=18)
         plt.show()
-
+ # Find the Power Spectrum
     kbins,dTkSZ_P = pspec_2d(kx,ky,dTkSZ_FT) # [K]^2[Mpc]^4
     if False:
         plt.scatter(kbins,np.log(dTkSZ_P))
@@ -103,7 +217,7 @@ def compute_kSZ_pspec(dTkSZ):
         plt.ylabel(r"$\Delta_{kSZ}^2=\ell(\ell+1)C_\ell/2\pi [\mu K^2]$",fontsize=18)
         plt.xlabel(r"$k$",fontsize=18)
         plt.show()
-        
+
 if __name__=='__main__':
     # test for compute_tau()
     nf = get_int_box_data('nf')
@@ -112,15 +226,15 @@ if __name__=='__main__':
     # plt.plot(z,tau); plt.show()
 
     # test for compute_kSZ()
-    # dTkSZ = compute_kSZ()
-    # plt.imshow(dTkSZ,origin='lower')
-    # plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
-    # plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
-    # cb=plt.colorbar()
-    # cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
-    # plt.show()
-    # np.save('kSZ_array',dTkSZ)
+    dTkSZ = compute_kSZ2()
+    plt.imshow(dTkSZ,origin='lower')
+    plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
+    plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
+    cb=plt.colorbar()
+    cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
+    plt.show()
+    np.save('kSZ_array2',dTkSZ)
 
-    dTkSZ = np.load('kSZ_array.npy')
-    compute_kSZ_pspec(dTkSZ)
+    # dTkSZ = np.load('kSZ_array.npy')
+    # compute_kSZ_pspec(dTkSZ)
 
