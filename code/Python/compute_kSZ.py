@@ -16,6 +16,7 @@ def compute_tau(density,nf):
     tau = sp.integrate.cumtrapz(fn,dx=(d[-1]-d[0])/len(d),initial=0)
     return z,d,tau
 
+# old kSZ code
 def compute_kSZ():
     nf = get_int_box_data('nf')
     density = get_int_box_data('density')
@@ -55,6 +56,21 @@ def compute_kSZ():
     fn = None
     return dTkSZ 
 
+# Function to find indices from a position
+def invert_linspace(a,b,n,x,c=0):
+    """a,b,n are the inputs to linspace. x is the point you want to invert.
+       c is a contant offset. the index i is returned.
+       x = a + (b-a)i/(n-1) + c ==> i = (n-1)(x-a-c)/(b-a)"""
+    i = int(round((n-1)*float(x-a-c)/(b-a)))
+    if i < 0: return 0
+    elif i >= n: return n-1
+    else: return i
+def get_xyz_id(xp,box,cs=(0,0,0)):
+    xid = invert_linspace(-box[0]/2,box[0]/2,box[0],xp[0],cs[0])
+    yid = invert_linspace(-box[1]/2,box[1]/2,box[1],xp[1],cs[1])
+    zid = invert_linspace(-box[2]/2,box[2]/2,box[2],xp[2],cs[2])
+    return (xid,yid,zid)
+
 def compute_kSZ2():
     nf = get_int_box_data('nf')
     density = get_int_box_data('density')
@@ -88,70 +104,31 @@ def compute_kSZ2():
     # xyzgd (x3), ndotq, nf, density, tau
     nf=None; density=None
     # xyzgd (x3), ndotq, tau
- # Convert to spherical coords
-    thgd = np.arccos(xyzgd[2]/rgd)
-    phgd = np.arctan(xyzgd[1]/xyzgd[0])
-    xyzgd=None;
-    # rgd, thgd, phgd, ndotq, tau
-    thcd = np.linspace(np.amin(thgd),np.amax(thgd),cfg.pms['shape'][0])
-    phcd = np.linspace(np.amin(phgd),np.amax(phgd),cfg.pms['shape'][1])
-    rcd = np.linspace(np.amin(rgd),np.amax(rgd),cfg.pms['shape'][2])
-    ndotq_s = griddata((thgd, phgd, rgd), ndotq, (thcd, phcd, rcd), method='linear')
-    ndotq=None;
-    # rgd, thgd, phgd, ndotq_s, tau
- # Compute the kSZ signal
-    fn = np.exp(-tau)*ndotq_s/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']*(1+z) # (Mpc/s)(m/s)^-1(m/Mpc)(K) = K
-    dTkSZ = sp.integrate.trapz(fn,x=tau,axis=2) # K
-    # ^ an array w/ axes theta and phi
-    fn = None
-    return dTkSZ 
-
-def compute_kSZ3():
-    nf = get_int_box_data('nf')
-    density = get_int_box_data('density')
-    # nf, density
- # Find the density and ionization weighting for the velocity field q
-    q0 = (1+nf)*(1+density)
-    nf = None; density = None
-    # q0
-    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
- # Get the spatial coordinates of all box cells
-    box = q0.shape
-    xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
-    ycd = np.linspace(-box[1]/2,box[1]/2,num=box[1])
-    zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
-    xyzgd = np.meshgrid(xcd,ycd,zcd)
-    xcd,ycd,zcd = None,None,None
-    rgd = np.sqrt(xyzgd[0]*xyzgd[0]+xyzgd[1]*xyzgd[1]+xyzgd[2]*xyzgd[2])
-    # q0, xyzgd (x3), rgd
- # Find the peculiar velocity 
-    ndotq = np.zeros_like(q0)
-    for ii,vii in enumerate(('vx','vy','vz')):
-        vi = get_int_box_data(vii)
-        ndotq += q0*vi*xyzgd[ii]/rgd
-    # q0, xyzgd (x3), rgd, ndotq, vi
-    vi = None; q0=None; 
-    # xyzgd (x3), rgd, ndotq    
- # Get tau
-    nf = get_int_box_data('nf')
-    density = get_int_box_data('density')
-    z,d,tau = compute_tau(density,nf)
-    # xyzgd (x3), ndotq, nf, density, tau
-    nf=None; density=None
-    # xyzgd (x3), ndotq, tau
- # Convert to nx,ny,r coords
+ # create new nx,ny,r coordinate grids
     nxgd = xyzgd[0]/rgd
+    nxcd = np.linspace(np.amin(nxgd),np.amax(nxgd),pms['shape'][0])
+    nxgd = None
     nygd = xyzgd[1]/xyzgd[0]
-    xyzgd=None;
-    # rgd, nxgd, nygd, ndotq, tau
-    nxcd = np.linspace(np.amin(nxgd),np.amax(nxgd),cfg.pms['shape'][0])
-    phcd = np.linspace(np.amin(nygd),np.amax(nygd),cfg.pms['shape'][1])
-    rcd = np.linspace(np.amin(rgd),np.amax(rgd),cfg.pms['shape'][2])
-    ndotq_s = griddata((nxgd, nygd, rgd), ndotq, (nxgd, nygd, rcd), method='linear')
+    nycd = np.linspace(np.amin(nygd),np.amax(nygd),pms['shape'][1])
+    nygd = None
+    rcd = np.linspace(np.amin(rgd),np.amax(rgd),pms['shape'][2])
+    xyzgd = None
+    ngd = np.meshgrid(nxcd,nycd,rcd)
+ # find the xyz values that correspond to the nx,ny,r coordinate grid
+    n_xcd = ngd[0]*ngd[2]
+    n_ycd = ngd[1]*ngd[0]
+    n_zcd = np.sqrt(ngd[2]*ngd[2] - ngd[0]*ngd[0] - ngd[1]*ngd[1])
+ # create the new grid of ndotq
+    ndotq_ncd = np.zeros(pms['shape'])#[len(nxcd),len(nycd),len(rcd)]
+    for index in np.ndindex(ndotq.shape):
+        xyz_id = get_xyz_id((ngd[0][index],ngd[1][index],ngd[2][index]),pms['shape'])
+        if index[0]%100==0 and index[1]==0 and index[2]==0: 
+            print index, xyz_id
+        ndotq_ncd[index] = ndotq[xyz_id]
     ndotq=None;
-    # rgd, nxgd, nygd, ndotq_s, tau
+    # ngd (x3), ndotq_ncd, tau
  # Compute the kSZ signal
-    fn = np.exp(-tau)*ndotq_s/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']*(1+z) # (Mpc/s)(m/s)^-1(m/Mpc)(K) = K
+    fn = np.exp(-tau)*ndotq_ncd/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']*(1+z) # (Mpc/s)(m/s)^-1(m/Mpc)(K) = K
     dTkSZ = sp.integrate.trapz(fn,x=tau,axis=2) # K
     # ^ an array w/ axes theta and phi
     fn = None
