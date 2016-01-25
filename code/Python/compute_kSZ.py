@@ -122,18 +122,21 @@ def regrid(ndotq):
  # create new nx,ny,r coordinate grids
     ngd = get_nxnyr_gd()
  # find the xyz values that correspond to the nx,ny,r coordinate grid
-    n_xcd = ngd[0]*ngd[2]
-    n_ycd = ngd[1]*ngd[0]
-    n_zcd = np.sqrt(ngd[2]*ngd[2] - ngd[0]*ngd[0] - ngd[1]*ngd[1])
+    n_xgd = ngd[0]*ngd[2]
+    n_ygd = ngd[1]*ngd[0]
+    n_zgd = np.sqrt(ngd[2]*ngd[2] - ngd[0]*ngd[0] - ngd[1]*ngd[1])
     ngd=None
  # create the new grid of ndotq
     ndotq_ncd = np.zeros(cfg.pms['shape'])
     print "Starting loop!"
     for ind in np.ndindex(ndotq.shape):
-        xyz_id = get_xyz_id((n_xcd[ind],n_ycd[ind],n_zcd[ind]),cfg.pms['shape'])
-        if ind[0]%100==0 and ind[1]==0 and ind[2]==0: 
+        xyz_id = get_xyz_id((n_xgd[ind],n_ygd[ind],n_zgd[ind]),cfg.pms['shape'])
+        if ind[0]%10==0 and ind[1]==0 and ind[2]==0: 
             print ind, xyz_id
         ndotq_ncd[ind] = ndotq[xyz_id]
+    # loop runs for 17s on a grid of 10x400x400
+    # should run for 11.3 min on a 400x400x400 grid
+    if True: np.save('ndotq_ncd',ndotq_ncd)
     return ndotq_ncd
 
 def compute_kSZ2(ndotq=None):
@@ -228,9 +231,9 @@ if __name__=='__main__':
     # plt.plot(z,tau); plt.show()
 
     # test for compute_kSZ()
-    # ndotq = np.load('ndotq.npy')
-    # dTkSZ = compute_kSZ2(ndotq)
-    dTkSZ = compute_kSZ2()
+    ndotq = np.load('ndotq.npy')
+    dTkSZ = compute_kSZ2(ndotq)
+    #dTkSZ = compute_kSZ2()
     plt.imshow(dTkSZ,origin='lower')
     plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
     plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
