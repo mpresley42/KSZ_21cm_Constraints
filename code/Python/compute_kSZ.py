@@ -5,6 +5,7 @@ import scipy.integrate
 from load_data import *
 from redshift import *
 from scipy.interpolate import griddata
+from warnings import warn 
 
 def compute_tau(density,nf):
     z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
@@ -92,7 +93,7 @@ def get_xyz_gd():
 def get_nxnyr_gd():
     xgd,ygd,zgd = get_xyz_gd()
     rgd = np.sqrt(xgd*xgd+ygd*ygd+zgd*zgd)
-    nygd = ygd/xgd
+    nygd = ygd/rgd
     nycd = np.linspace(np.amin(nygd),np.amax(nygd),cfg.pms['shape'][1])
     nygd = None; ygd=None
     nxgd = xgd/rgd
@@ -109,21 +110,26 @@ def invert_linspace(a,b,n,x,c=0):
        c is a contant offset. the index i is returned.
        x = a + (b-a)i/(n-1) + c ==> i = (n-1)(x-a-c)/(b-a)"""
     i = int(round((n-1)*float(x-a-c)/(b-a)))
-    if i < 0: return 0
-    elif i >= n: return n-1
-    else: return i
+    if i < 0: 
+        warn("Index too small (i = {0}).".format(i))
+        return 0
+    elif i >= n: 
+        warn("Index too big (i = {0}).".format(i))
+        return n-1
+    else: 
+        return i
 def get_xyz_id(xp,box,cs=(0,0,0)):
     xid = invert_linspace(-box[0]/2,box[0]/2,box[0],xp[0],cs[0])
     yid = invert_linspace(-box[1]/2,box[1]/2,box[1],xp[1],cs[1])
     zid = invert_linspace(-box[2]/2,box[2]/2,box[2],xp[2],cs[2])
     return (xid,yid,zid)
 
-def regrid(ndotq):
+def regrid_old(ndotq):
  # create new nx,ny,r coordinate grids
     ngd = get_nxnyr_gd()
  # find the xyz values that correspond to the nx,ny,r coordinate grid
     n_xgd = ngd[0]*ngd[2]
-    n_ygd = ngd[1]*ngd[0]
+    n_ygd = ngd[1]*ngd[2]
     n_zgd = np.sqrt(ngd[2]*ngd[2] - ngd[0]*ngd[0] - ngd[1]*ngd[1])
     ngd=None
  # create the new grid of ndotq
@@ -136,6 +142,34 @@ def regrid(ndotq):
         ndotq_ncd[ind] = ndotq[xyz_id]
     # loop runs for 17s on a grid of 10x400x400
     # should run for 11.3 min on a 400x400x400 grid
+    if True: np.save('ndotq_ncd',ndotq_ncd)
+    return ndotq_ncd
+
+def regrid(ndotq):
+ # create new nx,ny,r coordinate grids
+    ngd = get_nxnyr_gd()
+ # find the xyz values that correspond to the nx,ny,r coordinate grid
+    n_xgd = ngd[0]*ngd[2]
+    n_ygd = ngd[1]*ngd[2]
+    #n_zgd = np.sqrt(ngd[2]*ngd[2] - ngd[0]*ngd[0] - ngd[1]*ngd[1])
+    n_zgd = np.sqrt(ngd[2]*ngd[2] - n_xgd*n_xgd - n_ygd*n_ygd)
+    ngd=None
+ # find the indices of the closest point on the regular xyz grid
+    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
+    box = np.array(cfg.pms['shape'])
+    xyz_0 = -box/2.+np.array([0,0,d[0]])
+    xyz_n = box/2.+np.array([0,0,d[0]])
+    xyz_delta = (xyz_n - xyz_0)/box
+    n_igd = ((n_xgd - xyz_0[0])/xyz_delta[0]).round().clip(0,box[0]-1).astype(int)
+    n_jgd = ((n_ygd - xyz_0[1])/xyz_delta[1]).round().clip(0,box[1]-1).astype(int)
+    n_kgd = ((n_zgd - xyz_0[2])/xyz_delta[2]).round().clip(0,box[2]-1).astype(int)
+    print np.amax(n_igd),np.amax(n_jgd),np.amax(n_kgd)
+    print np.amin(n_igd),np.amin(n_jgd),np.amin(n_kgd)
+    # plt.imshow(n_igd[:,:,0],origin='lower'); plt.show()
+    # plt.imshow(n_jgd[:,:,0],origin='lower'); plt.show()
+    # plt.imshow(n_kgd[0,:,:],origin='lower'); plt.show()
+ # create the new grid of ndotq
+    ndotq_ncd = ndotq[n_igd,n_jgd,n_kgd]
     if True: np.save('ndotq_ncd',ndotq_ncd)
     return ndotq_ncd
 
