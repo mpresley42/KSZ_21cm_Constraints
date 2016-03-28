@@ -1,6 +1,7 @@
 import os
 import subprocess
 import fnmatch as fnm
+import re
 
 def match_files(location,pattern):
     files = []
@@ -19,10 +20,11 @@ def scrape_data(location):
         nums = [float(i) for i in re.findall("[-+]?\d+[\.]?\d*",f)] # regex magic that extracts numbers from a string
         z = nums[1]
         nf = nums[2]
-        Tb = nums[7]
+        Tb = nums[9]
         wf.write('{0} {1} {2}\n'.format(z,nf,Tb))
     wf.close()
 
 if __name__=='__main__':
+    #loc = '/scratch1/scratchdirs/mpresley/21cm_FAST_Sims/test6/RandSeed_111_Sigma8_0.81577_h_0.68123_Omm_0.30404_Omb_0.04805_ns_0.96670_Rmfp_35.00_Tvir_60000.0_Squiggly_30.00_lnAs_3.06400/Boxes/'
     loc = './'
     scrape_data(loc)

@@ -13,14 +13,15 @@ base_dir = '/scratch1/scratchdirs/mpresley/21cm_FAST_Sims/grid_runs/'
 
 def create_submit_script(label):
     # get text of template file
-    with open('varyAll_FullBoxIonHist_template.sh', 'r') as file:
+    with open('varyOne_FullBoxIonHist_template.sh', 'r') as file:
         file_text = file.readlines()
 
     # now change the lines for this run
-    file_text[28] = '{0}{1}\n'.format(base_dir,label)
+    # workLoc="/scratch1/scratchdirs/mpresley/21cm_FAST_Sims/test6"
+    file_text[30] = 'workLoc="{0}{1}"\n'.format(base_dir,label)
 
     # write everything to a new file
-    run_script = 'varyAll_FullBoxIonHist_{0}.sh'.format(label)
+    run_script = 'varyOne_FullBoxIonHist_{0}.sh'.format(label)
     with open(run_script, 'w') as file:
         file.writelines(file_text)
 
@@ -50,6 +51,17 @@ def create_run_directory(**kwargs):
         file.write(file_text+'\n')
     return label
 
+def do_run(**kwargs):
+    label = create_run_directory(kwargs)
+    create_submit_script(label)
+
 if __name__=='__main__':
     label = create_run_directory(Tvir=12000.)
     create_submit_script(label)
+
+#     for Tvir in (10000., 12000., 14000.,):
+#         do_run(Tvir=Tvir)
+#     for Rmfp in (20., 30., 40.,):
+#         do_run(Rmfp=Rmfp)
+#     for Squiggly in (25., 30., 35.):
+#         do_run(Squiggly=Squiggly)
