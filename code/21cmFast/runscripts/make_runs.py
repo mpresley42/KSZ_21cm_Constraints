@@ -18,7 +18,7 @@ def create_submit_script(label):
 
     # now change the lines for this run
     # workLoc="/scratch1/scratchdirs/mpresley/21cm_FAST_Sims/test6"
-    file_text[30] = 'workLoc="{0}{1}"\n'.format(base_dir,label)
+    file_text[29] = 'workLoc="{0}{1}"\n'.format(base_dir,label)
 
     # write everything to a new file
     run_script = 'varyOne_FullBoxIonHist_{0}.sh'.format(label)
@@ -56,7 +56,8 @@ def do_run(**kwargs):
     create_submit_script(label)
 
 if __name__=='__main__':
-    label = create_run_directory(Tvir=12000.)
+    #label = create_run_directory(Rmfp=20.)
+    label = create_run_directory(Tvir=21000.)
     create_submit_script(label)
 
 #     for Tvir in (10000., 12000., 14000.,):

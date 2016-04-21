@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=21cmSim
 #SBATCH --account=m1871
-#SBATCH --partition=regular
-#SBATCH --nodes=16
-#SBATCH --time=08:00:00
+#SBATCH --partition=debug
+#SBATCH --nodes=4
+#SBATCH --time=00:05:00
 #SBATCH --mail-type==(BEGIN,END,FAIL)
 #SBATCH --mail-user==mpresley@berkeley.edu
 
@@ -22,9 +22,8 @@ module unload numpy/1.9.2
 module load numpy/1.7.1
 module load fftw
 module load gsl
-module load taskfarmer
 
-numNodes=16
+numNodes=4
 numSamples=$numNodes
 toDoList="varyTvir.dat"
 scriptDIR=$PBS_O_WORKDIR # location of this script
@@ -65,7 +64,9 @@ totalNumTodo=`cat $toDoList | wc -l`
 ### This portion also sets up the necessary directories
 #tf -t $totalNumTodo -n $numNodes -e serial.err -o serial.out $simCodeLoc/Programs/z0_init_compilation_tf.sh $toDoList $simCodeLoc
 #echo "tf -t $totalNumTodo -n $numNodes -e serial.err -o serial.out $simCodeLoc/Programs/z0_init_compilation_tf.sh $toDoList $simCodeLoc"
-srun -e serial.err -o serial.out $runscriptLoc/z0_init_compilation.sh $toDoList $simCodeLoc
+echo "srun -e serial.err -o serial.out $runscriptLoc/z0_init_compilation.sh $toDoList $simCodeLoc"
+#srun -e serial.err -o serial.out $runscriptLoc/z0_init_compilation.sh $toDoList $simCodeLoc
+echo "finished z0_init_compilation.sh"
 
 ### Compute the density fields at z = 0 once and for all
 let counter=0
@@ -103,7 +104,9 @@ for (( j=1 ; $j<=$totalNumTodo ; j=$j+1 )) ; do
     currentTime=`date`
     echo "Starting this run at $currentTime"
     export OMP_NUM_THREADS=24
-    srun -n 1 -N 1 -c 24 ./init >& "$currentDIR".log &
+    echo "srun -n 1 -N 1 -c 24 ./init >& "$currentDIR".log & "
+    #srun -n 1 -N 1 -c 24 ./init >& "$currentDIR".log &
+    echo "finished ./init"
     counter=$(($counter + 1))
     
     echo "Currently there are $counter runs going"
@@ -124,7 +127,9 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
     ### Now compile all the codes for the relevant redshifts
 
     #tf -t $totalNumTodo -n $numNodes -e serial.err -o serial.out $simCodeLoc/Programs/evolveDensity_compilation_tf.sh $toDoList $zTopOfChunk $zStep $numFineSteps
-    srun -e serial.err -o serial.out $runscriptLoc/evolveDensity_compilation.sh $toDoList $zTopOfChunk $zStep $numFineSteps 
+    echo "srun -e serial.err -o serial.out $runscriptLoc/evolveDensity_compilation.sh $toDoList $zTopOfChunk $zStep $numFineSteps"
+#    srun -e serial.err -o serial.out $runscriptLoc/evolveDensity_compilation.sh $toDoList $zTopOfChunk $zStep $numFineSteps 
+    echo "finished evolveDensity_compilation.sh"
 
     mv serial.out $workLoc/serial_evolveDensity.out
     #mv tf.log $workLoc/tf_evolveDensity.log
@@ -168,7 +173,9 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
         currentTime=`date`
         echo "Starting this run at $currentTime"
         export OMP_NUM_THREADS=24
-        srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_evolveDensity >& "$currentDIR".log &
+	echo "srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_evolveDensity >& "$currentDIR".log &"
+#        srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_evolveDensity >& "$currentDIR".log &
+	echo "finished drive_zscroll_noTs_evolveDensity"
         counter=$(($counter + 1))
         
         echo "Currently there are $counter runs going"
@@ -219,7 +226,9 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
         currentTime=`date`
         echo "Starting this run at $currentTime"
         export OMP_NUM_THREADS=24
-        srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_reion >& "$currentDIR".log &
+	echo "srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_reion >& "$currentDIR".log &"
+#        srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_reion >& "$currentDIR".log &
+	echo "finished drive_zscroll_noTs_reion"
         counter=$(($counter + 1))
         
         echo "Currently there are $counter runs going"
@@ -239,16 +248,23 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
         mkdir ionHist
     fi
     #tf -t $totalNumTodo -n $numNodes -e serial.err -o serial.out $simCodeLoc/Programs/extract_allVar_FullBoxIonHistStats_tf.sh $toDoList $codeLoc $workLoc $boxLength $zTopOfChunk $zStep $numFineSteps
-    srun -e serial.err -o serial.out $runscriptLoc/extract_allVar_FullBoxIonHistStats.sh $toDoList $codeLoc $workLoc $boxLength $zTopOfChunk $zStep $numFineSteps
+    echo "srun -e serial.err -o serial.out $runscriptLoc/extract_allVar_FullBoxIonHistStats.sh $toDoList $codeLoc $workLoc $boxLength $zTopOfChunk $zStep $numFineSteps"
+#    srun -e serial.err -o serial.out $runscriptLoc/extract_allVar_FullBoxIonHistStats.sh $toDoList $codeLoc $workLoc $boxLength $zTopOfChunk $zStep $numFineSteps
+    echo "finished extract_allVar_FullBoxIonHistStats.sh"
 
     mv serial.out $workLoc/serial_extract_IonHiststats.out
     #mv tf.log $workLoc/tf_extract_IonHiststats.log
     popd > /dev/null
 done
  
-popd > /dev/null
+#popd > /dev/null
 
 # combine the boxes
+pushd $currentDIR/Boxes > /dev/null
+
+echo "Combine All the Boxes!"
+echo $PWD
+
 ls updated*deltax* >  deltax_list.txt 
 /global/homes/m/mpresley/soft/21cmFAST/Programs/redshift_interpolate_boxes 0 deltax_list.txt 
 
