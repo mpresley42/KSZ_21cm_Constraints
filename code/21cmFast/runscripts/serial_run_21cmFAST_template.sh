@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=21cmSim
 #SBATCH --account=m1871
-#SBATCH --partition=debug
-#SBATCH --nodes=2
-#SBATCH --time=00:20:00
+#SBATCH --partition=regular
+#SBATCH --nodes=1
+#SBATCH --time=07:00:00
 #SBATCH --mail-type==(BEGIN,END,FAIL)
 #SBATCH --mail-user==mpresley@berkeley.edu
 
@@ -51,8 +51,8 @@ sed "35s/300/$boxLength/" $simCodeLoc/Parameter_files/INIT_PARAMS_original.H > $
 
 zStart=30.0 # inclusive
 zStep=-0.5
-numCoarseSteps=1 #5 # number of times it deletes files
-numFineSteps=2 #10 # total num of redshifts = coarse * fine
+numCoarseSteps=5 # number of times it deletes files
+numFineSteps=10 # total num of redshifts = coarse * fine
 
 ### Prep the analysis directories
 if [ ! -d $workLoc ]; then
