@@ -128,7 +128,7 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
 
     #tf -t $totalNumTodo -n $numNodes -e serial.err -o serial.out $simCodeLoc/Programs/evolveDensity_compilation_tf.sh $toDoList $zTopOfChunk $zStep $numFineSteps
     echo "srun -e serial.err -o serial.out $runscriptLoc/evolveDensity_compilation.sh $toDoList $zTopOfChunk $zStep $numFineSteps"
-#    srun -e serial.err -o serial.out $runscriptLoc/evolveDensity_compilation.sh $toDoList $zTopOfChunk $zStep $numFineSteps 
+    #srun -e serial.err -o serial.out $runscriptLoc/evolveDensity_compilation.sh $toDoList $zTopOfChunk $zStep $numFineSteps 
     echo "finished evolveDensity_compilation.sh"
 
     mv serial.out $workLoc/serial_evolveDensity.out
@@ -174,7 +174,7 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
         echo "Starting this run at $currentTime"
         export OMP_NUM_THREADS=24
 	echo "srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_evolveDensity >& "$currentDIR".log &"
-#        srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_evolveDensity >& "$currentDIR".log &
+        #srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_evolveDensity >& "$currentDIR".log &
 	echo "finished drive_zscroll_noTs_evolveDensity"
         counter=$(($counter + 1))
         
@@ -227,7 +227,7 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
         echo "Starting this run at $currentTime"
         export OMP_NUM_THREADS=24
 	echo "srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_reion >& "$currentDIR".log &"
-#        srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_reion >& "$currentDIR".log &
+        #srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_reion >& "$currentDIR".log &
 	echo "finished drive_zscroll_noTs_reion"
         counter=$(($counter + 1))
         
@@ -249,7 +249,7 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
     fi
     #tf -t $totalNumTodo -n $numNodes -e serial.err -o serial.out $simCodeLoc/Programs/extract_allVar_FullBoxIonHistStats_tf.sh $toDoList $codeLoc $workLoc $boxLength $zTopOfChunk $zStep $numFineSteps
     echo "srun -e serial.err -o serial.out $runscriptLoc/extract_allVar_FullBoxIonHistStats.sh $toDoList $codeLoc $workLoc $boxLength $zTopOfChunk $zStep $numFineSteps"
-#    srun -e serial.err -o serial.out $runscriptLoc/extract_allVar_FullBoxIonHistStats.sh $toDoList $codeLoc $workLoc $boxLength $zTopOfChunk $zStep $numFineSteps
+    #srun -e serial.err -o serial.out $runscriptLoc/extract_allVar_FullBoxIonHistStats.sh $toDoList $codeLoc $workLoc $boxLength $zTopOfChunk $zStep $numFineSteps
     echo "finished extract_allVar_FullBoxIonHistStats.sh"
 
     mv serial.out $workLoc/serial_extract_IonHiststats.out

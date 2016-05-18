@@ -55,18 +55,27 @@ def get_constants(params):
 pms = get_params(run_dir)
 pms = get_constants(pms)
 
-# *** I think this is off by 2! ***
+# *** I think this is wrong! ***
 def redshift_to_space(zi=0, zf=20, num=1000):
     dz = (zf-zi)/num
+    z0 = np.linspace(0,zi,num=num)
+    fn0 = (pms['c'] / pms['H0']) / np.sqrt(pms['Omm']*(1+z0)**3+(1.-pms['Omm']))
+    di = sp.integrate.trapz(fn0,z0,dx=dz)
     z = np.linspace(zi,zf,num=num)
     fn = (pms['c'] / pms['H0']) / np.sqrt(pms['Omm']*(1+z)**3+(1.-pms['Omm']))
-    d = sp.integrate.cumtrapz(fn,z,dx=dz,initial=0) / mToMpc
+    d = (di+sp.integrate.cumtrapz(fn,z,dx=dz,initial=0)) / mToMpc    
     return z,d
 
 def space_to_redshift(d,zi=5,zf=8):
     z0,d0 = redshift_to_space(zi=zi,zf=zf,num=10000)
     z = np.interp(d, d0, z0)
     return z
+
+def get_z_d(zi=pms['zi'],zf=pms['zf']):
+    z0,d0 = redshift_to_space(zi=zi,zf=zf,num=1000)
+    d = np.linspace(d0[0],d0[-1],nf.shape[2])
+    z = space_to_redshift(d,zi=zi,zf=zf)
+    return z,d
 
 def get_box_data(field,redshift):
     data_file = data_dir+match_file(data_dir,'{0}z{1:06.2f}*Mpc'.format(box_headers[field],redshift))
@@ -137,12 +146,10 @@ def get_density_weights():
     return denWeights
 
 def compute_tau(density,nf):
-    z0,d0 = redshift_to_space(zi=pms['zi'],zf=pms['zf'],num=1000)
-    d = np.linspace(d0[0],d0[-1],nf.shape[2])
-    z = space_to_redshift(d,zi=pms['zi'],zf=pms['zf'])
+    z,d = get_z_d()
     nb = pms['nb0']*(1+z)**3
     chiHII = np.average(nf*(1+density),axis=(0,1))
-    plt.plot(z,chiHII)
+    plt.plot(z,chiHII); plt.show()
     chiHeIII = np.zeros_like(chiHII)
     chiHeIII[np.where(z<3)] = 1
     fn = pms['sigT']*nb*(chiHII+0.25*chiHeIII*pms['YBBNp'])*mToMpc

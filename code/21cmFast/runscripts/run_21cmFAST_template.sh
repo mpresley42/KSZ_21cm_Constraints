@@ -65,7 +65,7 @@ totalNumTodo=`cat $toDoList | wc -l`
 #tf -t $totalNumTodo -n $numNodes -e serial.err -o serial.out $simCodeLoc/Programs/z0_init_compilation_tf.sh $toDoList $simCodeLoc
 #echo "tf -t $totalNumTodo -n $numNodes -e serial.err -o serial.out $simCodeLoc/Programs/z0_init_compilation_tf.sh $toDoList $simCodeLoc"
 echo "srun -e serial.err -o serial.out $runscriptLoc/z0_init_compilation.sh $toDoList $simCodeLoc"
-#srun -e serial.err -o serial.out $runscriptLoc/z0_init_compilation.sh $toDoList $simCodeLoc
+srun -e serial.err -o serial.out $runscriptLoc/z0_init_compilation.sh $toDoList $simCodeLoc
 echo "finished z0_init_compilation.sh"
 
 ### Set up current directory

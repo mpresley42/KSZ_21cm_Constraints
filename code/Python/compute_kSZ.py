@@ -40,46 +40,7 @@ def compute_ndotq():
     if True: np.save('ndotq',ndotq)
     return ndotq
 
-# old kSZ code
-def compute_kSZ():
-    nf = get_int_box_data('nf')
-    density = get_int_box_data('density')
-    # nf, density
- # Find the density and ionization weighting for the velocity field q
-    q0 = (1+nf)*(1+density)
-    nf = None; density = None
-    # q0
- # Get the spatial coordinates of all box cells
-    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
-    box = q0.shape
-    xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
-    ycd = np.linspace(-box[1]/2,box[1]/2,num=box[1])
-    zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
-    xyzgd = np.meshgrid(xcd,ycd,zcd)
-    xcd,ycd,zcd = None,None,None
-    rgd = np.sqrt(xyzgd[0]*xyzgd[0]+xyzgd[1]*xyzgd[1]+xyzgd[2]*xyzgd[2])
-    # q0, xyzgd (x3), rgd
- # Find the peculiar velocity 
-    ndotq = np.zeros_like(q0)
-    for ii,vii in enumerate(('vx','vy','vz')):
-        vi = get_int_box_data(vii)
-        ndotq += q0*vi*xyzgd[ii]/rgd
-    # q0, xyzgd (x3), rgd, ndotq, vi
-    vi = None; q0=None; rgd=None; xyzgd=None;
-    # ndotq
- # Get tau
-    nf = get_int_box_data('nf')
-    density = get_int_box_data('density')
-    z,d,tau = compute_tau(density,nf)
-    # ndotq, nf, density, tau
-    nf=None; density=None
-    # ndotq, tau
- # Compute the kSZ signal
-    fn = np.exp(-tau)*ndotq/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']*(1+z) # (Mpc/s)(m/s)^-1(m/Mpc)(K) = K
-    dTkSZ = sp.integrate.trapz(fn,x=tau,axis=2) # K
-    fn = None
-    return dTkSZ 
-
+# Create a grid of x,y,z coordinates for the standard box
 def get_xyz_gd():
     box = cfg.pms['shape']
     xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
@@ -90,70 +51,50 @@ def get_xyz_gd():
     xcd,ycd,zcd = None,None,None
     return xyzgd
 
+# Create 1D arrays of nx,ny,r coords for the standard box
+def get_nxnyr_cd():
+    box = cfg.pms['shape']
+    lx = box[0]/2.; ly = box[1]/2.; lz = box[2]
+    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
+    
+    # front of box -- don't use bc grid will extend
+    #                 outside the standard box
+    # nx_max = lx / np.sqrt(lx*lx+d[0]*d[0]) # nx_min = - nx_max
+    # ny_max = ly / np.sqrt(ly*ly+d[0]*d[0]) # ny_min = - ny_max
+    # r_max = np.sqrt(lx*lx+ly*ly+(d[0]+lz)*(d[0]+lz)) # r_min = d[0]
+
+    # back of box -- throws away half the box but whatever
+    df = d[0]+lz
+    nx_max = lx / np.sqrt(lx*lx+df*df) # nx_min = - nx_max
+    ny_max = ly / np.sqrt(ly*ly+df*df) # ny_min = - ny_max
+    r_max = np.sqrt(lx*lx+ly*ly+df*df) # r_min = d[0]
+
+    nxcd = np.linspace(-nx_max,nx_max,box[0])
+    nycd = np.linspace(-ny_max,ny_max,box[1])
+    rcd = np.linspace(d[0],r_max,box[2])
+    return nxcd,nycd,rcd
+
+# Create a regular grid of nx,ny,r coords for the standard box
 def get_nxnyr_gd():
-    xgd,ygd,zgd = get_xyz_gd()
-    rgd = np.sqrt(xgd*xgd+ygd*ygd+zgd*zgd)
-    nygd = ygd/rgd
-    nycd = np.linspace(np.amin(nygd),np.amax(nygd),cfg.pms['shape'][1])
-    nygd = None; ygd=None
-    nxgd = xgd/rgd
-    nxcd = np.linspace(np.amin(nxgd),np.amax(nxgd),cfg.pms['shape'][0])
-    nxgd = None; xgd=None
-    rcd = np.linspace(np.amin(rgd),np.amax(rgd),cfg.pms['shape'][2])
-    rgd = None
+    nxcd,nycd,rcd = get_nxnyr_cd()
     ngd = np.meshgrid(nxcd,nycd,rcd)
     return ngd
 
-# Function to find indices from a position
-def invert_linspace(a,b,n,x,c=0):
-    """a,b,n are the inputs to linspace. x is the point you want to invert.
-       c is a contant offset. the index i is returned.
-       x = a + (b-a)i/(n-1) + c ==> i = (n-1)(x-a-c)/(b-a)"""
-    i = int(round((n-1)*float(x-a-c)/(b-a)))
-    if i < 0: 
-        warn("Index too small (i = {0}).".format(i))
-        return 0
-    elif i >= n: 
-        warn("Index too big (i = {0}).".format(i))
-        return n-1
-    else: 
-        return i
-def get_xyz_id(xp,box,cs=(0,0,0)):
-    xid = invert_linspace(-box[0]/2,box[0]/2,box[0],xp[0],cs[0])
-    yid = invert_linspace(-box[1]/2,box[1]/2,box[1],xp[1],cs[1])
-    zid = invert_linspace(-box[2]/2,box[2]/2,box[2],xp[2],cs[2])
-    return (xid,yid,zid)
-
-def regrid_old(ndotq):
+# Find the xyz values that correspond to the nx,ny,r coordinate grid
+def get_corresp_xyz_gd():
  # create new nx,ny,r coordinate grids
     ngd = get_nxnyr_gd()
  # find the xyz values that correspond to the nx,ny,r coordinate grid
     n_xgd = ngd[0]*ngd[2]
     n_ygd = ngd[1]*ngd[2]
-    n_zgd = np.sqrt(ngd[2]*ngd[2] - ngd[0]*ngd[0] - ngd[1]*ngd[1])
-    ngd=None
- # create the new grid of ndotq
-    ndotq_ncd = np.zeros(cfg.pms['shape'])
-    print "Starting loop!"
-    for ind in np.ndindex(ndotq.shape):
-        xyz_id = get_xyz_id((n_xgd[ind],n_ygd[ind],n_zgd[ind]),cfg.pms['shape'])
-        if ind[0]%10==0 and ind[1]==0 and ind[2]==0: 
-            print ind, xyz_id
-        ndotq_ncd[ind] = ndotq[xyz_id]
-    # loop runs for 17s on a grid of 10x400x400
-    # should run for 11.3 min on a 400x400x400 grid
-    if True: np.save('ndotq_ncd',ndotq_ncd)
-    return ndotq_ncd
-
-def regrid(ndotq):
- # create new nx,ny,r coordinate grids
-    ngd = get_nxnyr_gd()
- # find the xyz values that correspond to the nx,ny,r coordinate grid
-    n_xgd = ngd[0]*ngd[2]
-    n_ygd = ngd[1]*ngd[2]
-    #n_zgd = np.sqrt(ngd[2]*ngd[2] - ngd[0]*ngd[0] - ngd[1]*ngd[1])
     n_zgd = np.sqrt(ngd[2]*ngd[2] - n_xgd*n_xgd - n_ygd*n_ygd)
     ngd=None
+    return n_xgd,n_ygd,n_zgd
+
+# Use nearest-neighbor to create a box on an nx,ny,nz grid
+def regrid(ndotq):
+ # find the xyz values that correspond to the nx,ny,r coordinate grid
+    n_xgd,n_ygd,n_zgd = get_corresp_xyz_gd()
  # find the indices of the closest point on the regular xyz grid
     z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
     box = np.array(cfg.pms['shape'])
@@ -170,10 +111,32 @@ def regrid(ndotq):
     # plt.imshow(n_kgd[0,:,:],origin='lower'); plt.show()
  # create the new grid of ndotq
     ndotq_ncd = ndotq[n_igd,n_jgd,n_kgd]
+    n_igd=None; n_jgd=None; n_kgd=None
     if True: np.save('ndotq_ncd',ndotq_ncd)
     return ndotq_ncd
 
-def compute_kSZ2(ndotq=None):
+# Use linear interpolation to create a box on an nx,ny,nz grid
+def regrid_linear(ndotq):
+ # find the xyz values that correspond to the nx,ny,r coordinate grid
+    n_xgd,n_ygd,n_zgd = get_corresp_xyz_gd()
+ # find the indices of the closest (floor) point on the regular xyz grid
+    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
+    box = np.array(cfg.pms['shape'])
+    xyz_0 = -box/2.+np.array([0,0,d[0]])
+    xyz_n = box/2.+np.array([0,0,d[0]])
+    xyz_delta = (xyz_n - xyz_0)/box
+    n_igd = ((n_xgd - xyz_0[0])/xyz_delta[0]).floor().clip(0,box[0]-1).astype(int)
+    n_jgd = ((n_ygd - xyz_0[1])/xyz_delta[1]).floor().clip(0,box[1]-1).astype(int)
+    n_kgd = ((n_zgd - xyz_0[2])/xyz_delta[2]).floor().clip(0,box[2]-1).astype(int)
+ # create the interpolated grid of ndotq
+ # y_* = y_j + (y_j+1 - y_j)(x_* - x_j)/(x_j+1 - x_j)
+    ndotq_ncd = ndotq[n_igd,n_jgd,n_kgd] + 
+                (ndotq[n_igd+1,n_jgd+1,n_kgd+1]-ndotq[n_igd,n_jgd,n_kgd])*
+                (n_xgd)
+
+
+
+def compute_kSZ(ndotq=None):
     if ndotq==None: ndotq = compute_ndotq()
     print "Have ndotq!"
     # ndotq    
@@ -225,28 +188,19 @@ def pspec_2d(kx,ky,ft,n=100):
     return kbins,pspec
 
 def compute_kSZ_pspec(dTkSZ):
-    #x = np.arange(cfg.pms['xyMpc']) - cfg.pms['xyMpc']/2
- # Get the spatial xyz coords
-    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
-    box = cfg.pms['shape']
-    x = np.linspace(-box[0]/2,box[0]/2,num=box[0])
-    y = np.linspace(-box[1]/2,box[1]/2,num=box[1])
-    z = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
- # Get the nx, ny coords
-    R = np.sqrt(x*x + y*y + z*z)
-    nx = x/R
-    ny = y/R
+ # Get the nx, ny, r coords
+    nxcd,nycd,rcd = get_nxnyr_cd()
  # Find the Fourier Transform
-    kx,ky,dTkSZ_FT = fft_2d(x,x,dTkSZ) # [K][Mpc]^2
+    kx,ky,dTkSZ_FT = fft_2d(nxcd,nycd,dTkSZ) # [K][Mpc]^2
     dTkSZ_FT = np.abs(dTkSZ_FT)    
-    if False:
+    if True:
         print dTkSZ_FT.min(), dTkSZ_FT.max(), dTkSZ_FT.mean()
         plt.imshow(np.log(dTkSZ_FT),cmap='Blues',origin='lower')
         cb=plt.colorbar();cb.set_label(r"$Log(\Delta \widetildeT_{kSZ})$",fontsize=18)
         plt.show()
  # Find the Power Spectrum
     kbins,dTkSZ_P = pspec_2d(kx,ky,dTkSZ_FT) # [K]^2[Mpc]^4
-    if False:
+    if True:
         plt.scatter(kbins,np.log(dTkSZ_P))
         plt.ylabel(r"$\log[P(k)]$",fontsize=18)
         plt.xlabel(r"$k$",fontsize=18)
@@ -256,6 +210,7 @@ def compute_kSZ_pspec(dTkSZ):
         plt.ylabel(r"$\Delta_{kSZ}^2=\ell(\ell+1)C_\ell/2\pi [\mu K^2]$",fontsize=18)
         plt.xlabel(r"$k$",fontsize=18)
         plt.show()
+    return kbins,dTkSZ_P
 
 if __name__=='__main__':
     # test for compute_tau()
@@ -264,18 +219,27 @@ if __name__=='__main__':
     # z,d,tau = compute_tau(density,nf)
     # plt.plot(z,tau); plt.show()
 
-    # test for compute_kSZ()
-    ndotq = np.load('ndotq.npy')
-    dTkSZ = compute_kSZ2(ndotq)
-    #dTkSZ = compute_kSZ2()
+    # # test for compute_kSZ()
+    # ndotq = np.load('ndotq.npy')
+    # dTkSZ = compute_kSZ(ndotq)
+    #dTkSZ = compute_kSZ()
+    dTkSZ = np.load('kSZ_array3.npy')
     plt.imshow(dTkSZ,origin='lower')
     plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
     plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
     cb=plt.colorbar()
     cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
     plt.show()
-    np.save('kSZ_array2',dTkSZ)
+    np.save('kSZ_array3',dTkSZ)
+
+    compute_kSZ_pspec(dTkSZ)
+
+    # LINEAR INTERPOLATION
 
     # dTkSZ = np.load('kSZ_array.npy')
     # compute_kSZ_pspec(dTkSZ)
 
+    # also look at cube rotating thing in 21cm fast
+    # ask Nick to save a sample of the cubes he is running
+    # compare to reionization history
+    # look at Messenger paper and look at the parameters he used
