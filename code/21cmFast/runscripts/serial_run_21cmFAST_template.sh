@@ -3,8 +3,8 @@
 #SBATCH --account=m1871
 #SBATCH --partition=regular
 #SBATCH --nodes=1
-#SBATCH --time=07:00:00
-#SBATCH --mail-type==(BEGIN,END,FAIL)
+#SBATCH --time=02:00:00
+#SBATCH --mail-type==FAIL
 #SBATCH --mail-user==mpresley@berkeley.edu
 
 # This is the monster script that varies EVERYTHING!
@@ -23,7 +23,7 @@ module load numpy/1.7.1
 module load fftw
 module load gsl
 
-numNodes=2
+numNodes=1
 numSamples=$numNodes
 toDoList="varyTvir.dat"
 scriptDIR=$PBS_O_WORKDIR # location of this script
@@ -51,7 +51,7 @@ sed "35s/300/$boxLength/" $simCodeLoc/Parameter_files/INIT_PARAMS_original.H > $
 
 zStart=30.0 # inclusive
 zStep=-0.5
-numCoarseSteps=5 # number of times it deletes files
+numCoarseSteps=3 #5 # number of times it deletes files
 numFineSteps=10 # total num of redshifts = coarse * fine
 
 ### Prep the analysis directories
@@ -104,10 +104,15 @@ currentTime=`date`
 echo "Starting this run at $currentTime"
 export OMP_NUM_THREADS=24
 echo "srun -n 1 -N 1 -c 24 ./init >& "$currentDIR".log "
-srun -n 1 -N 1 -c 24 ./init >& "$currentDIR".log 
+srun -n 1 -N 1 -c 24 -e serial.err -o serial.out ./init
 echo "finished ./init"
 
+mv serial.err $workLoc/serial_init.err
+mv serial.out $workLoc/serial_init.out
+
+
 for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
+    echo "I'm on coarse step $i..."
     zTopOfChunk=`echo "scale=20; $zStart + ($numFineSteps * $i) * $zStep" | bc -l`
     zBottomOfChunk=`echo "scale=20; $zStart + ($numFineSteps * $i + $numFineSteps - 1) * $zStep" | bc -l`
 
@@ -118,7 +123,8 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
     srun -n 1 -N 1 -c 24 -e serial.err -o serial.out ./evolveDensity_compilation.sh $toDoList $zTopOfChunk $zStep $numFineSteps 
     echo "finished evolveDensity_compilation.sh"
 
-    mv serial.out $workLoc/serial_evolveDensity.out
+    mv serial.err $workLoc/serial_evolveDensity_$i.err
+    mv serial.out $workLoc/serial_evolveDensity_$i.out
 
     ### Evolve the density field
     cd $currentDIR/Programs
@@ -128,8 +134,11 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
     echo "Starting this run at $currentTime"
     export OMP_NUM_THREADS=24
     echo "srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_evolveDensity >& "$currentDIR".log"
-    srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_evolveDensity >& "$currentDIR".log 
+    srun -n 1 -N 1 -c 24 -e serial.err -o serial.out ./drive_zscroll_noTs_evolveDensity  
     echo "finished drive_zscroll_noTs_evolveDensity"
+
+    mv serial.err $workLoc/serial_drive_zscroll_noTs_evolveDensity_$i.err
+    mv serial.out $workLoc/serial_drive_zscroll_noTs_evolveDensity_$i.out
 
     ### Run the reionization simulations
     cd $currentDIR/Programs
@@ -140,8 +149,11 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
     echo "Starting this run at $currentTime"
     export OMP_NUM_THREADS=24
     echo "srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_reion >& "$currentDIR".log"
-    srun -n 1 -N 1 -c 24 ./drive_zscroll_noTs_reion >& "$currentDIR".log 
+    srun -n 1 -N 1 -c 24 -e serial.err -o serial.out ./drive_zscroll_noTs_reion  
     echo "finished drive_zscroll_noTs_reion"
+
+    mv serial.err $workLoc/serial_drive_zscroll_noTs_reion_$i.err
+    mv serial.out $workLoc/serial_drive_zscroll_noTs_reion_$i.out
 
     ### Extract ionization history stats and delete files to free up space
     cd $workLoc
@@ -153,7 +165,8 @@ for (( i=0 ; $i<$numCoarseSteps ; i=$i+1 )) ; do
     srun -n 1 -N 1 -c 24 -e serial.err -o serial.out $simCodeLoc/Programs/extract_allVar_FullBoxIonHistStats.sh $toDoList $codeLoc $workLoc $boxLength $zTopOfChunk $zStep $numFineSteps
     echo "finished extract_allVar_FullBoxIonHistStats.sh"
 
-    mv serial.out $workLoc/serial_extract_IonHiststats.out
+    mv serial.err $workLoc/serial_extract_IonHiststats_$i.err
+    mv serial.out $workLoc/serial_extract_IonHiststats_$i.out
 done
  
 # combine the boxes
