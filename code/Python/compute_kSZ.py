@@ -190,9 +190,15 @@ def pspec_2d(kx,ky,ft,n=100):
     kbins=kbins[:-1]; pspec=pspec[:-1]
     return kbins,pspec
 
-def compute_kSZ_pspec(dTkSZ):
+def compute_kSZ_pspec(dTkSZ,mask=None,pdw=0):
  # Get the nx, ny, r coords
     nxcd,nycd,rcd = get_nxnyr_cd()
+ # Apply mask if necessary 
+    if mask==None: mask = np.ones_like(dTkSZ)
+    else: dTkSZ = dTkSZ*mask
+ # Compute overall normalization
+    norm = np.trapz(np.trapz(mask*mask,nycd,axis=1),nxcd,axis=0)
+    print "norm = ",norm
  # Find the Fourier Transform
     lx,ly,dTkSZ_FT = fft_2d(nxcd,nycd,dTkSZ) # [K][Mpc]^2
     dTkSZ_FT = np.abs(dTkSZ_FT)    
@@ -203,7 +209,7 @@ def compute_kSZ_pspec(dTkSZ):
         plt.show()
  # Find the Power Spectrum
     lbins,dTkSZ_P = pspec_2d(lx,ly,dTkSZ_FT) # [K]^2[Mpc]^4
-    print kbins
+    dTkSZ_P = dTkSZ_P/norm
     if True:
         plt.scatter(lbins,np.log(dTkSZ_P))
         plt.ylabel(r"$\log[P(k)]$",fontsize=18)
