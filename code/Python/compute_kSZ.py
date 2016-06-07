@@ -69,8 +69,11 @@ def get_nxnyr_cd():
     ny_max = ly / np.sqrt(ly*ly+df*df) # ny_min = - ny_max
     r_max = np.sqrt(lx*lx+ly*ly+df*df) # r_min = d[0]
 
+    print nx_max, ny_max
+
     nxcd = np.linspace(-nx_max,nx_max,box[0])
     nycd = np.linspace(-ny_max,ny_max,box[1])
+    print 2*nx_max/box[0], 2*ny_max/box[1]
     rcd = np.linspace(d[0],r_max,box[2])
     return nxcd,nycd,rcd
 
@@ -130,9 +133,9 @@ def regrid_linear(ndotq):
     n_kgd = ((n_zgd - xyz_0[2])/xyz_delta[2]).floor().clip(0,box[2]-1).astype(int)
  # create the interpolated grid of ndotq
  # y_* = y_j + (y_j+1 - y_j)(x_* - x_j)/(x_j+1 - x_j)
-    ndotq_ncd = ndotq[n_igd,n_jgd,n_kgd] + 
-                (ndotq[n_igd+1,n_jgd+1,n_kgd+1]-ndotq[n_igd,n_jgd,n_kgd])*
-                (n_xgd)
+    # ndotq_ncd = ndotq[n_igd,n_jgd,n_kgd] + 
+    #             (ndotq[n_igd+1,n_jgd+1,n_kgd+1]-ndotq[n_igd,n_jgd,n_kgd])*
+    #             (n_xgd)
 
 
 
@@ -200,13 +203,14 @@ def compute_kSZ_pspec(dTkSZ):
         plt.show()
  # Find the Power Spectrum
     kbins,dTkSZ_P = pspec_2d(kx,ky,dTkSZ_FT) # [K]^2[Mpc]^4
+    print kbins
     if True:
         plt.scatter(kbins,np.log(dTkSZ_P))
         plt.ylabel(r"$\log[P(k)]$",fontsize=18)
         plt.xlabel(r"$k$",fontsize=18)
         plt.show()
     if True:
-        plt.scatter(kbins,kbins*kbins*dTkSZ_P/(2.*np.pi)) # [Mpc]^-2[K]^2[Mpc]^4 = [K]^2[Mpc]^2
+        plt.scatter(kbins,np.log(kbins*(kbins+1.)*dTkSZ_P/(2*np.pi))) # [Mpc]^-2[K]^2[Mpc]^4 = [K]^2[Mpc]^2
         plt.ylabel(r"$\Delta_{kSZ}^2=\ell(\ell+1)C_\ell/2\pi [\mu K^2]$",fontsize=18)
         plt.xlabel(r"$k$",fontsize=18)
         plt.show()
@@ -219,10 +223,13 @@ if __name__=='__main__':
     # z,d,tau = compute_tau(density,nf)
     # plt.plot(z,tau); plt.show()
 
+    #get_nxnyr_cd()
+
     # # test for compute_kSZ()
     # ndotq = np.load('ndotq.npy')
     # dTkSZ = compute_kSZ(ndotq)
     #dTkSZ = compute_kSZ()
+    
     dTkSZ = np.load('kSZ_array3.npy')
     plt.imshow(dTkSZ,origin='lower')
     plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
