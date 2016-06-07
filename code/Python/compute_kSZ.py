@@ -190,6 +190,14 @@ def pspec_2d(kx,ky,ft,n=100):
     kbins=kbins[:-1]; pspec=pspec[:-1]
     return kbins,pspec
 
+def pad_array(nx,ny,nMap,pdw):
+    nMap_pad = np.pad(nMap, ((pdw,pdw),(pdw,pdw)), 'constant', constant_values=0)
+    dx=(nx[-1]-nx[0])/(len(nx)-1)
+    nx_pad = np.concatenate((np.arange(nx[0]-pdw*dx,nx[0],dx),nx,np.arange(nx[-1],nx[-1]+pdw*dx,dx)))
+    dy=(ny[-1]-ny[0])/(len(ny)-1)
+    ny_pad = np.concatenate((np.arange(ny[0]-pdw*dy,ny[0],dy),ny,np.arange(ny[-1],ny[-1]+pdw*dy,dy)))
+    return nx_pad,ny_pad,nMap_pad
+
 def compute_kSZ_pspec(dTkSZ,mask=None,pdw=0):
  # Get the nx, ny, r coords
     nxcd,nycd,rcd = get_nxnyr_cd()
@@ -199,10 +207,17 @@ def compute_kSZ_pspec(dTkSZ,mask=None,pdw=0):
  # Compute overall normalization
     norm = np.trapz(np.trapz(mask*mask,nycd,axis=1),nxcd,axis=0)
     print "norm = ",norm
+ # Apply padding if necessary
+    if pdw!=0: nxcd,nycd,dTkSZ = pad_array(nxcd,nycd,dTkSZ,pdw)
+ # Plot the new dTkSZ 
+    if True:
+        plt.imshow(dTkSZ,origin='lower')
+        cb=plt.colorbar();cb.set_label(r"$\Delta T_{kSZ})$",fontsize=18)
+        plt.show()
  # Find the Fourier Transform
     lx,ly,dTkSZ_FT = fft_2d(nxcd,nycd,dTkSZ) # [K][Mpc]^2
     dTkSZ_FT = np.abs(dTkSZ_FT)    
-    if True:
+    if False:
         print dTkSZ_FT.min(), dTkSZ_FT.max(), dTkSZ_FT.mean()
         plt.imshow(np.log(dTkSZ_FT),cmap='Blues',origin='lower')
         cb=plt.colorbar();cb.set_label(r"$Log(\Delta \widetildeT_{kSZ})$",fontsize=18)
@@ -245,7 +260,7 @@ if __name__=='__main__':
     plt.show()
     np.save('kSZ_array3',dTkSZ)
 
-    compute_kSZ_pspec(dTkSZ)
+    compute_kSZ_pspec(dTkSZ,pdw=100)
 
     # LINEAR INTERPOLATION
 
