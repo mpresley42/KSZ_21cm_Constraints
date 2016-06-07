@@ -194,7 +194,7 @@ def compute_kSZ_pspec(dTkSZ):
  # Get the nx, ny, r coords
     nxcd,nycd,rcd = get_nxnyr_cd()
  # Find the Fourier Transform
-    kx,ky,dTkSZ_FT = fft_2d(nxcd,nycd,dTkSZ) # [K][Mpc]^2
+    lx,ly,dTkSZ_FT = fft_2d(nxcd,nycd,dTkSZ) # [K][Mpc]^2
     dTkSZ_FT = np.abs(dTkSZ_FT)    
     if True:
         print dTkSZ_FT.min(), dTkSZ_FT.max(), dTkSZ_FT.mean()
@@ -202,19 +202,19 @@ def compute_kSZ_pspec(dTkSZ):
         cb=plt.colorbar();cb.set_label(r"$Log(\Delta \widetildeT_{kSZ})$",fontsize=18)
         plt.show()
  # Find the Power Spectrum
-    kbins,dTkSZ_P = pspec_2d(kx,ky,dTkSZ_FT) # [K]^2[Mpc]^4
+    lbins,dTkSZ_P = pspec_2d(lx,ly,dTkSZ_FT) # [K]^2[Mpc]^4
     print kbins
     if True:
-        plt.scatter(kbins,np.log(dTkSZ_P))
+        plt.scatter(lbins,np.log(dTkSZ_P))
         plt.ylabel(r"$\log[P(k)]$",fontsize=18)
         plt.xlabel(r"$k$",fontsize=18)
         plt.show()
     if True:
-        plt.scatter(kbins,np.log(kbins*(kbins+1.)*dTkSZ_P/(2*np.pi))) # [Mpc]^-2[K]^2[Mpc]^4 = [K]^2[Mpc]^2
+        plt.scatter(lbins,np.log(lbins*(lbins+1.)*dTkSZ_P/(2*np.pi))) # [Mpc]^-2[K]^2[Mpc]^4 = [K]^2[Mpc]^2
         plt.ylabel(r"$\Delta_{kSZ}^2=\ell(\ell+1)C_\ell/2\pi [\mu K^2]$",fontsize=18)
         plt.xlabel(r"$k$",fontsize=18)
         plt.show()
-    return kbins,dTkSZ_P
+    return lbins,dTkSZ_P
 
 if __name__=='__main__':
     # test for compute_tau()
