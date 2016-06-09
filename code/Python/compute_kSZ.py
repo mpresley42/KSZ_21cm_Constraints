@@ -137,8 +137,6 @@ def regrid_linear(ndotq):
     #             (ndotq[n_igd+1,n_jgd+1,n_kgd+1]-ndotq[n_igd,n_jgd,n_kgd])*
     #             (n_xgd)
 
-
-
 def compute_kSZ(ndotq=None):
     if ndotq==None: ndotq = compute_ndotq()
     print "Have ndotq!"
@@ -176,19 +174,25 @@ def fft_2d(x,y,fg):
 # Compute Power Spectrum from a Fourier Transform
 # Units: [kbins] = [k]
 #        [pspec] = [ft]^2 = [fg]^2[x]^4
-def pspec_2d(kx,ky,ft,n=100):
+def pspec_2d(kx,ky,ft,n=500):
     ft = np.abs(ft)**2
     kxg,kyg = np.meshgrid(kx,ky)
     kg = np.sqrt(kxg*kxg+kyg*kyg)
     kmin = np.min(kg);kmax = np.max(kg)
-    kbins = np.arange(kmin,kmax,(kmax-kmin)/n)
+    #kmin = np.min(np.abs(kx));kmax = np.max(kx)
+    dk = (kmax-kmin)/n
+    kbins = np.arange(kmin,kmax+dk,dk)
+    #kbins = np.linspace(0.0,10.0)
     pspec = np.zeros_like(kbins)
-    for ii in range(len(kbins)-1):
-        pspec[ii] = np.sum(np.where(np.logical_and(kg>=kbins[ii], kg<kbins[ii+1]), ft, 0))
-        area = np.sum(np.where(np.logical_and(kg>=kbins[ii], kg<kbins[ii+1]), 1, 0))
-        pspec[ii] = pspec[ii]/area
-    kbins=kbins[:-1]; pspec=pspec[:-1]
-    return kbins,pspec
+    area = np.zeros_like(kbins)
+    for ii in range(len(kx)):
+        for jj in range(len(ky)):
+            kbini = int(np.floor(kg[ii,jj]/dk))
+            pspec[kbini] += ft[ii,jj]
+            area[kbini] += 1
+    pspec = pspec / area
+    kbins=kbins[:-1]; pspec=pspec[:-1]; area=area[:-1]
+    return kbins,pspec,area
 
 def pad_array(nx,ny,nMap,pdw):
     nMap_pad = np.pad(nMap, ((pdw,pdw),(pdw,pdw)), 'constant', constant_values=0)
@@ -225,7 +229,7 @@ def compute_kSZ_pspec(dTkSZ,mask=None,pdw=0):
  # Find the Power Spectrum
     lbins,dTkSZ_P = pspec_2d(lx,ly,dTkSZ_FT) # [K]^2[Mpc]^4
     dTkSZ_P = dTkSZ_P/norm
-    if True:
+    if False:
         plt.scatter(lbins,np.log(dTkSZ_P))
         plt.ylabel(r"$\log[P(k)]$",fontsize=18)
         plt.xlabel(r"$k$",fontsize=18)
@@ -238,6 +242,7 @@ def compute_kSZ_pspec(dTkSZ,mask=None,pdw=0):
     return lbins,dTkSZ_P
 
 if __name__=='__main__':
+    print "Tcmb = ",cfg.pms['Tcmb']
     # test for compute_tau()
     nf = get_int_box_data('nf')
     # density = get_int_box_data('density')
@@ -246,19 +251,18 @@ if __name__=='__main__':
 
     #get_nxnyr_cd()
 
-    # # test for compute_kSZ()
     # ndotq = np.load('ndotq.npy')
     # dTkSZ = compute_kSZ(ndotq)
-    #dTkSZ = compute_kSZ()
+    # np.save('kSZ_array_micro',dTkSZ)
     
-    dTkSZ = np.load('kSZ_array3.npy')
+    dTkSZ = np.load('kSZ_array_micro.npy')
+    
     plt.imshow(dTkSZ,origin='lower')
     plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
     plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
     cb=plt.colorbar()
     cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
     plt.show()
-    np.save('kSZ_array3',dTkSZ)
 
     compute_kSZ_pspec(dTkSZ,pdw=100)
 
