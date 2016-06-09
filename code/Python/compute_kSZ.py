@@ -202,6 +202,18 @@ def pad_array(nx,ny,nMap,pdw):
     ny_pad = np.concatenate((np.arange(ny[0]-pdw*dy,ny[0],dy),ny,np.arange(ny[-1],ny[-1]+pdw*dy,dy)))
     return nx_pad,ny_pad,nMap_pad
 
+def pad2_array(nx,ny,nMap,pdw):
+    if pdw <= len(nx): return nx,ny,nMap
+    if pdw <= len(ny): return nx,ny,nMap
+    pdx = (pdw - nMap.shape[0])/2.; pdxl=np.ceil(pdx); pdxr=np.floor(pdx)
+    pdy = (pdw - nMap.shape[1])/2.; pdyl=np.ceil(pdy); pdyr=np.floor(pdy)
+    nMap_pad = np.pad(nMap, ((pdxl,pdxr),(pdxl,pdxr)), 'constant', constant_values=0)
+    dx=(nx[-1]-nx[0])/(len(nx)-1)
+    nx_pad = np.concatenate((np.arange(nx[0]-pdxl*dx,nx[0],dx),nx,np.arange(nx[-1],nx[-1]+pdxr*dx,dx)))
+    dy=(ny[-1]-ny[0])/(len(ny)-1)
+    ny_pad = np.concatenate((np.arange(ny[0]-pdyl*dy,ny[0],dy),ny,np.arange(ny[-1],ny[-1]+pdyr*dy,dy)))
+    return nx_pad,ny_pad,nMap_pad
+
 def compute_kSZ_pspec(dTkSZ,mask=None,pdw=0):
  # Get the nx, ny, r coords
     nxcd,nycd,rcd = get_nxnyr_cd()
