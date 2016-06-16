@@ -34,7 +34,7 @@ def get_constants(params):
     pms['mu']=1.0 + pms['YBBNp']*0.25*(pms['mHe']/pms['mH']-1.0)
     pms['nb0']=(3.*pms['H0']**2*pms['Omb'])/(8.*np.pi*pms['G']*pms['mu']*pms['mp']) # at z=0. scales with (1+z)^3
     pms['sigT']=6.65246e-29 # m^2
-    pms['Tcmb']=2.725 # K
+    pms['Tcmb']=2.725e6 # microK
     return pms 
 
 pms = get_params(run_dir)
