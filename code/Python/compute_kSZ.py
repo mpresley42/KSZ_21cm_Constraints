@@ -137,6 +137,46 @@ def regrid_linear(ndotq):
     #             (ndotq[n_igd+1,n_jgd+1,n_kgd+1]-ndotq[n_igd,n_jgd,n_kgd])*
     #             (n_xgd)
 
+def compute_kSZ_linear(ndotq=None):
+    if ndotq==None: ndotq = compute_ndotq()
+    print "Have ndotq!"
+    # ndotq    
+ # Get tau
+    nf = get_int_box_data('nf')
+    density = get_int_box_data('density')
+    zred,d,tau = compute_tau(density,nf)
+    # ndotq, nf, density, tau
+    nf=None; density=None
+    # ndotq, tau
+    # Get n,r coord
+    nxcd,nycd,rcd = get_nxnyr_cd()
+    # Loop over angles
+    dTkSZ = np.zeros([len(nxcd),len(nycd)])
+    for ii in range(len(nxcd)):
+        print ii
+        for jj in range(len(nycd)):
+            # Loop over z direction
+            for kk in range(len(rcd)-1):
+                # Find corresponding xyz coord
+                x = nxcd[ii]*rcd[kk]
+                y = nycd[jj]*rcd[kk]
+                z = np.sqrt(rcd[kk]*rcd[kk]-x*x-y*y)
+                # Find closest xyz indices
+                dx=1.;dy=1;dz=1
+                xi = int(np.floor(x/dx))
+                yj = int(np.floor(y/dy))
+                zk = int(np.floor((z-d[0])/dz))
+                try:
+                    dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])*(tau[zk+1]-tau[zk])
+                except IndexError:
+                    # print "Index Error"
+                    # print ii,jj,kk
+                    # print x,y,z 
+                    # print xi,yj,zk
+                    pass
+    dTkSZ = dTkSZ/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']
+    return dTkSZ 
+
 def compute_kSZ(ndotq=None):
     if ndotq==None: ndotq = compute_ndotq()
     print "Have ndotq!"
@@ -208,10 +248,12 @@ def pad2_array(nx,ny,nMap,pdw):
     pdx = (pdw - nMap.shape[0])/2.; pdxl=np.ceil(pdx); pdxr=np.floor(pdx)
     pdy = (pdw - nMap.shape[1])/2.; pdyl=np.ceil(pdy); pdyr=np.floor(pdy)
     nMap_pad = np.pad(nMap, ((pdxl,pdxr),(pdxl,pdxr)), 'constant', constant_values=0)
-    dx=(nx[-1]-nx[0])/(len(nx)-1)
-    nx_pad = np.concatenate((np.arange(nx[0]-pdxl*dx,nx[0],dx),nx,np.arange(nx[-1],nx[-1]+pdxr*dx,dx)))
-    dy=(ny[-1]-ny[0])/(len(ny)-1)
-    ny_pad = np.concatenate((np.arange(ny[0]-pdyl*dy,ny[0],dy),ny,np.arange(ny[-1],ny[-1]+pdyr*dy,dy)))
+    dx=(nx[-1]-nx[0])/(len(nx)-1.); print dx
+    #nx_pad = np.concatenate((np.arange(nx[0]-pdxl*dx,nx[0],dx),nx,np.arange(nx[-1]+dx,nx[-1]+(pdxr+1)*dx,dx)))
+    nx_pad = np.pad(nx,(pdxl,pdxr),'linear_ramp',end_values=(nx[0]-pdxl*dx,nx[-1]+(pdxr+1)*dx))
+    dy=(ny[-1]-ny[0])/(len(ny)-1.)
+    #ny_pad = np.concatenate((np.arange(ny[0]-pdyl*dy,ny[0],dy),ny,np.arange(ny[-1]+dy,ny[-1]+(pdyr+1)*dy,dy)))
+    ny_pad = np.pad(ny,(pdyl,pdyr),'linear_ramp',end_values=(ny[0]-pdyl*dy,ny[-1]+(pdyr+1)*dy))
     return nx_pad,ny_pad,nMap_pad
 
 def compute_kSZ_pspec(dTkSZ,mask=None,pdw=512,n=500,pretty=True):
@@ -221,9 +263,9 @@ def compute_kSZ_pspec(dTkSZ,mask=None,pdw=512,n=500,pretty=True):
     if mask==None: mask = np.ones_like(dTkSZ)
     else: dTkSZ = dTkSZ*mask
  # Compute overall normalization
-    print mask.shape, nycd.shape,nxcd.shape, dTkSZ.shape
+    #print mask.shape, nycd.shape,nxcd.shape, dTkSZ.shape
     norm = np.trapz(np.trapz(mask*mask,nycd,axis=1),nxcd,axis=0)
-    print "norm = ",norm
+    #print "norm = ",norm
  # Apply padding if necessary
     #if pdw!=0: nxcd,nycd,dTkSZ = pad_array(nxcd,nycd,dTkSZ,pdw)
     nxcd,nycd,dTkSZ = pad2_array(nxcd,nycd,dTkSZ,pdw)
@@ -242,11 +284,11 @@ def compute_kSZ_pspec(dTkSZ,mask=None,pdw=512,n=500,pretty=True):
     lbins,dTkSZ_P,area = pspec_2d(lx,ly,dTkSZ_FT,n=n) # [K]^2[Mpc]^4
     dTkSZ_P = dTkSZ_P/norm
     if pretty:
-        plt.plot(lbins,dTkSZ_P)
+        plt.semilogy(lbins,dTkSZ_P)
         plt.ylabel(r"$P(\ell)$",fontsize=18)
         plt.xlabel(r"$\ell$",fontsize=18)
         plt.show()
-    if False:
+    if pretty:
         plt.semilogy(lbins,lbins*(lbins+1.)*dTkSZ_P/(2*np.pi)) # [Mpc]^-2[K]^2[Mpc]^4 = [K]^2[Mpc]^2
         plt.ylabel(r"$\Delta_{kSZ}^2=\ell(\ell+1)C_\ell/2\pi [\mu K^2]$",fontsize=18)
         plt.xlabel(r"$k$",fontsize=18)
@@ -264,19 +306,19 @@ if __name__=='__main__':
     #get_nxnyr_cd()
 
     # ndotq = np.load('ndotq.npy')
-    # dTkSZ = compute_kSZ(ndotq)
-    # np.save('kSZ_array_micro',dTkSZ)
+    # dTkSZ = compute_kSZ_linear(ndotq)
+    # np.save('kSZ_array_linear_larger',dTkSZ)
     
-    dTkSZ = np.load('kSZ_array_micro.npy')
+    dTkSZ = np.load('kSZ_array_linear_larger.npy')
     
-    plt.imshow(dTkSZ,origin='lower')
-    plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
-    plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
-    cb=plt.colorbar()
-    cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
-    plt.show()
+    # plt.imshow(dTkSZ,origin='lower')
+    # plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
+    # plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
+    # cb=plt.colorbar()
+    # cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
+    # plt.show()
 
-    compute_kSZ_pspec(dTkSZ,pdw=100)
+    compute_kSZ_pspec(dTkSZ,pdw=100,pretty=True)
 
     # LINEAR INTERPOLATION
 
