@@ -7,15 +7,33 @@ from redshift import *
 from scipy.interpolate import griddata
 from warnings import warn 
 
-def compute_tau(density,nf):
-    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
+def compute_tau(density,nf,pretty=False):
+    z0,d0 = get_z_d(0,cfg.pms['zi'],proper=True)
+    z1,d1 = get_z_d(cfg.pms['zi'],cfg.pms['zf'],proper=True)
+    z = np.concatenate((z0,z1))
+    d = np.concatenate((d0,d1))
+
     nb = cfg.pms['nb0']*(1+z)**3
-    chiHII = np.average(nf*(1+density),axis=(0,1))
+    chiHII = np.ones_like(z)
+    chiHII[len(d0):] = np.average((1.-nf)*(1+density),axis=(0,1))
     chiHeIII = np.zeros_like(chiHII)
     chiHeIII[np.where(z<3)] = 1
+
     fn = cfg.pms['sigT']*nb*(chiHII+0.25*chiHeIII*cfg.pms['YBBNp'])*mToMpc
-    tau = sp.integrate.cumtrapz(fn,dx=(d[-1]-d[0])/len(d),initial=0)
-    return z,d,tau
+    tau = sp.integrate.cumtrapz(fn,x=d,initial=0)
+    
+    if pretty:
+        plt.plot(z,chiHII,label='chiHII')
+        plt.plot(z,chiHeIII,label='chiHeIII')
+        plt.ylim([0,1.1])
+        plt.xlabel("z"); plt.ylabel("chi")
+        plt.legend(loc='lower left'); plt.show() #bbox_to_anchor=(1.3,0.6)
+        
+        plt.plot(z,tau)
+        plt.xlabel('z'); plt.ylabel('tau'); plt.show()
+
+    # NOTE: This returns the proper distance!
+    return z1,d1,tau[len(d0):]
 
 def compute_ndotq():
     nf = get_int_box_data('nf')
@@ -144,7 +162,8 @@ def compute_kSZ_linear(ndotq=None):
  # Get tau
     nf = get_int_box_data('nf')
     density = get_int_box_data('density')
-    zred,d,tau = compute_tau(density,nf)
+    zred,dp,tau = compute_tau(density,nf)
+    zred,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'],proper=False)
     # ndotq, nf, density, tau
     nf=None; density=None
     # ndotq, tau
@@ -176,6 +195,33 @@ def compute_kSZ_linear(ndotq=None):
                     pass
     dTkSZ = dTkSZ/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']
     return dTkSZ 
+
+def compute_kSZ_test(ndotq=None):
+    if ndotq==None: ndotq = compute_ndotq()
+    print "Have ndotq!"
+    # ndotq    
+ # Get tau
+    nf = get_int_box_data('nf')
+    density = get_int_box_data('density')
+    zred,d,tau = compute_tau(density,nf)
+    # ndotq, nf, density, tau
+    nf=None; density=None
+    # ndotq, tau
+    # z coordinate axis
+    box = cfg.pms['shape']
+    zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
+    # Loop over angles
+    dTkSZ = 0
+    ii=200; jj=200
+    # Loop over z direction
+    for kk in range(box[2]-1):
+        try:
+            dTkSZ += np.exp(-tau[kk])*ndotq[ii,jj,kk]*(1+zred[kk])*(tau[kk+1]-tau[kk])
+        except IndexError:
+            print "Index Error: ",kk
+            pass
+    dTkSZ = dTkSZ/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']
+    return dTkSZ
 
 def compute_kSZ(ndotq=None):
     if ndotq==None: ndotq = compute_ndotq()
@@ -296,29 +342,36 @@ def compute_kSZ_pspec(dTkSZ,mask=None,pdw=512,n=500,pretty=True):
     return lbins,dTkSZ_P,area
 
 if __name__=='__main__':
-    print "Tcmb = ",cfg.pms['Tcmb']
     # test for compute_tau()
+    
     nf = get_int_box_data('nf')
-    # density = get_int_box_data('density')
-    # z,d,tau = compute_tau(density,nf)
-    # plt.plot(z,tau); plt.show()
+    
+    print cfg.pms['zi'], cfg.pms['zf']
+
+    density = get_int_box_data('density')
+    z,d,tau = compute_tau(density,nf,pretty=True)
+    #plt.plot(z,tau); plt.show()
+    #for kk in range(nf.shape[2]): print nf[200,200,kk]
+    #plt.plot(z,nf[200,200]); plt.show()
 
     #get_nxnyr_cd()
 
     # ndotq = np.load('ndotq.npy')
-    # dTkSZ = compute_kSZ_linear(ndotq)
-    # np.save('kSZ_array_linear_larger',dTkSZ)
+    # dTkSZ = compute_kSZ_test(ndotq)
+    # print "dTkSZ = ",dTkSZ
+    #np.save('kSZ_array_linear_larger',dTkSZ)
     
-    dTkSZ = np.load('kSZ_array_linear_larger.npy')
+    #dTkSZ = np.load('kSZ_array_linear_larger.npy')
     
     # plt.imshow(dTkSZ,origin='lower')
     # plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
     # plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
     # cb=plt.colorbar()
     # cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
+    # plt.hist(dTkSZ)
     # plt.show()
 
-    compute_kSZ_pspec(dTkSZ,pdw=100,pretty=True)
+    #compute_kSZ_pspec(dTkSZ,pdw=100,pretty=True)
 
     # LINEAR INTERPOLATION
 
