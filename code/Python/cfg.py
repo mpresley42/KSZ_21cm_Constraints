@@ -23,7 +23,7 @@ def get_constants(params):
     pms['Omb']=0.022/(pms['h']*pms['h'])
     pms['YBBNp']=0.24
     # =============================
-    pms['H0']=pms['h']*3.241e-18 # s^-1
+    pms['H0']=pms['h']*3.241e-18 # s^-1 # = h * 100 km/s/Mpc
     pms['mp']=1.672622e-27 # kg  
     pms['G']=6.67384e-11 # N m^2 kg^-2
     pms['c']=2.99792458e8 # m/s

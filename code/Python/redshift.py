@@ -4,8 +4,9 @@ import scipy as sp
 import scipy.integrate
 from load_data import *
 
-f = lambda z: (cfg.pms['c'] / cfg.pms['H0']) / np.sqrt(cfg.pms['Omm']*(1+z)**3+(1.-cfg.pms['Omm'])) # drdz
-def redshift_to_space(zi=0, zf=20, num=1000):
+f = lambda z: (cfg.pms['c'] / cfg.pms['H0']) / np.sqrt(cfg.pms['Omm']*(1+z)**3+(1.-cfg.pms['Omm'])) # drdz co-moving
+fp = lambda z: (cfg.pms['c'] / cfg.pms['H0']) / ((1+z)*np.sqrt(cfg.pms['Omm']*(1+z)**3+(1.-cfg.pms['Omm']))) # drdz proper
+def redshift_to_space(zi=0, zf=20, num=1000, proper=False):
     """Takes in a starting and ending redshift and 
        returns an array of num redshifts and an array 
        of their corresponding comoving distances."""
@@ -14,25 +15,26 @@ def redshift_to_space(zi=0, zf=20, num=1000):
     fn0 = f(z0)    
     di = sp.integrate.trapz(fn0,z0,dx=dz)
     z = np.linspace(zi,zf,num=num)
-    fn = f(z)
+    if proper: fn = fp(z)
+    else: fn = f(z)
     d = (di+sp.integrate.cumtrapz(fn,z,dx=dz,initial=0)) / mToMpc    
     return z,d
 
-def space_to_redshift(d,zi=5,zf=8):
+def space_to_redshift(d,zi=5,zf=8,proper=False):
     """Takes in an array of comoving distances and returns 
        the corresponding array of redshifts."""
-    z0,d0 = redshift_to_space(zi=zi,zf=zf,num=10000)
+    z0,d0 = redshift_to_space(zi=zi,zf=zf,num=10000,proper=proper)
     z = np.interp(d, d0, z0)
     return z
 
-def get_z_d(zi,zf,dlen=None):
+def get_z_d(zi,zf,dlen=None,proper=False):
     """Takes in a starting and ending redshift and 
        returns arrays of redshifts and comoving distances for 
        the coordinates of the boxes."""
     z0,d0 = redshift_to_space(zi=zi,zf=zf,num=1000)
     if dlen==None: d = np.linspace(d0[0],d0[-1],cfg.pms['shape'][2])
     else: d = np.linspace(d0[0],d0[-1],dlen)
-    z = space_to_redshift(d,zi=zi,zf=zf)
+    z = space_to_redshift(d,zi=zi,zf=zf,proper=proper)
     return z,d
 
 if __name__=='__main__':
