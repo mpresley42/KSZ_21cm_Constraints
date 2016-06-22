@@ -31,7 +31,7 @@ def get_z_d(zi,zf,dlen=None,proper=False):
     """Takes in a starting and ending redshift and 
        returns arrays of redshifts and comoving distances for 
        the coordinates of the boxes."""
-    z0,d0 = redshift_to_space(zi=zi,zf=zf,num=1000)
+    z0,d0 = redshift_to_space(zi=zi,zf=zf,num=1000,proper=proper)
     if dlen==None: d = np.linspace(d0[0],d0[-1],cfg.pms['shape'][2])
     else: d = np.linspace(d0[0],d0[-1],dlen)
     z = space_to_redshift(d,zi=zi,zf=zf,proper=proper)
