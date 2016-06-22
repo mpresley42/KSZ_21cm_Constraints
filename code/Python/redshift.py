@@ -12,11 +12,12 @@ def redshift_to_space(zi=0, zf=20, num=1000, proper=False):
        of their corresponding comoving distances."""
     dz = (zf-zi)/num
     z0 = np.linspace(0,zi,num=num)
-    fn0 = f(z0)    
+    if proper: fn0 = fp(z0)
+    else:      fn0 = f(z0)    
     di = sp.integrate.trapz(fn0,z0,dx=dz)
     z = np.linspace(zi,zf,num=num)
     if proper: fn = fp(z)
-    else: fn = f(z)
+    else:      fn = f(z)
     d = (di+sp.integrate.cumtrapz(fn,z,dx=dz,initial=0)) / mToMpc    
     return z,d
 
