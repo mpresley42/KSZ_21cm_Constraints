@@ -71,7 +71,7 @@ def build_intuition():
     x = np.arange(-10.,10.,dx)
     nvals = np.arange(-nmax,nmax)
     kvals = np.arange(-kmax,kmax)
-    avals = np.arange(0.5,2.0,0.5)
+    avals = np.arange(0.5,3.0,0.5)
     
     fig, ax = plt.subplots(len(avals),2, sharex='col')
     for ii,a in enumerate(avals):
@@ -83,16 +83,17 @@ def build_intuition():
         im = ax[ii,1].matshow(Cnk,origin='lower',vmin=-1,vmax=2)
         ax[ii,1].set_ylabel(r"$k$",fontsize=18)
         ax[ii,1].xaxis.set_ticks_position('bottom')
-        ax[ii,1].set_aspect('auto')
+        ax[ii,1].set_aspect('equal',adjustable='box-forced')
+        #ax[ii,0].set_aspect('equal',adjustable='box-forced')
     ax[-1,0].set_xlabel(r"$x$",fontsize=18)
     ax[-1,1].set_xlabel(r"$n$",fontsize=18)
     ax[0,0].set_title(r"$f(x)=\frac{2}{\pi}\arctan(ax)$",fontsize=18)
     ax[0,1].set_title(r"$C_{n,k}$",fontsize=18)
 
-    cax = fig.add_axes([0.93, 0.1, 0.03, 0.8])
+    cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])
     fig.colorbar(im, cax=cax)
-
-    plt.show()
+    plt.savefig('build_intuition.pdf')
+    #plt.show()
     
 
 if __name__=='__main__':
