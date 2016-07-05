@@ -46,13 +46,13 @@ def test_decomp():
     nmax = 10.; kmax = 10.
     dx = 0.1*2.**(-nmax)
 
-    x = np.arange(-4.,6.,dx)
-    f = (2./np.pi)*np.arctan(x-2.)
+    x = np.arange(-10.,10.,dx)
+    f = (2./np.pi)*np.arctan(0.5*x)
 
     nvals = np.arange(-nmax,nmax)
     kvals = np.arange(-kmax,kmax)
     Cnk = wavelet_decomp(x,f,nvals,kvals)
-    plt.matshow(Cnk,origin='lower')
+    plt.matshow(Cnk,origin='lower',vmin=-1,vmax=2)
     plt.colorbar()
     plt.savefig('Cnk_matrix.pdf') 
     plt.show()
@@ -72,15 +72,18 @@ def build_intuition():
     nvals = np.arange(-nmax,nmax)
     kvals = np.arange(-kmax,kmax)
     avals = np.arange(0.5,3.0,0.5)
+    #avals = np.arange(-4.0,5.0,2.0)
     
     fig, ax = plt.subplots(len(avals),2, sharex='col')
     for ii,a in enumerate(avals):
         f = (2./np.pi)*np.arctan(a*x)
         Cnk = wavelet_decomp(x,f,nvals,kvals)
         fr = wavelet_recov(Cnk,nvals,kvals,x)
-        ax[ii,0].plot(x,f,x,fr,label=r"$a = %d$"%a)
+        ax[ii,0].plot(x,f,label=r"$a = %g$"%a)
+        ax[ii,0].plot(x,fr)
         ax[ii,0].set_ylabel(r"$f(x)$",fontsize=18)
-        im = ax[ii,1].matshow(Cnk,origin='lower',vmin=-1,vmax=2)
+        ax[ii,0].legend(loc='lower right',prop={'size':8})
+        im = ax[ii,1].matshow(Cnk,origin='lower',vmin=-1,vmax=1,cmap='coolwarm')
         ax[ii,1].set_ylabel(r"$k$",fontsize=18)
         ax[ii,1].xaxis.set_ticks_position('bottom')
         ax[ii,1].set_aspect('equal',adjustable='box-forced')
@@ -98,5 +101,5 @@ def build_intuition():
 
 if __name__=='__main__':
     # plot_basic_wavelets()
-    # test_decomp()
+    #test_decomp()
     build_intuition()
