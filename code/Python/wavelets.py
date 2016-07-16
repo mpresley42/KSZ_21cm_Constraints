@@ -52,10 +52,18 @@ def test_decomp():
     nvals = np.arange(-nmax,nmax)
     kvals = np.arange(-kmax,kmax)
     Cnk = wavelet_decomp(x,f,nvals,kvals)
-    plt.matshow(Cnk,origin='lower',vmin=-1,vmax=2)
-    plt.colorbar()
+    
+    fig, ax = plt.subplots()
+    im = ax.matshow(Cnk,origin='lower',vmin=-1,vmax=1.5,extent=(-nmax,nmax,-kmax,kmax))
+    ax.xaxis.set_ticks_position('bottom')
+    plt.minorticks_on()
+    ax.grid(b=True, which='major', color='k', linestyle='-')
+    ax.grid(b=True, which='minor', color='Grey', linestyle='--',dashes=(2,5))
+    ax.set_ylabel(r"$k$",fontsize=18)
+    ax.set_xlabel(r"$n$",fontsize=18)
+    plt.colorbar(im)
     plt.savefig('Cnk_matrix.pdf') 
-    plt.show()
+    #plt.show()
 
     plt.clf()
     fr = wavelet_recov(Cnk,nvals,kvals,x)
@@ -63,7 +71,7 @@ def test_decomp():
     plt.plot(x,fr,label='Recovered')
     plt.legend(loc='lower right')
     plt.savefig('recovered_function.pdf')
-    plt.show()
+    #plt.show()
 
 def build_intuition():
     nmax = 10.; kmax = 10.
@@ -98,8 +106,39 @@ def build_intuition():
     plt.savefig('build_intuition.pdf')
     #plt.show()
     
+def explore_xrange():
+    nmax = 10.; kmax = 10.
+    dx = 0.1*2.**(-nmax)
+    nvals = np.arange(-nmax,nmax)
+    kvals = np.arange(-kmax,kmax)
+
+    xmaxvals = np.array([5.,10.,15.,20.])
+    fig, ax = plt.subplots(len(xmaxvals),2, sharex='col')
+    for ii,xmax in enumerate(xmaxvals):
+        x = np.arange(-xmax,xmax,dx)
+        f = (2./np.pi)*np.arctan(0.5*x)
+        Cnk = wavelet_decomp(x,f,nvals,kvals)
+        fr = wavelet_recov(Cnk,nvals,kvals,x)
+        ax[ii,0].plot(x,f,label=r"$xmax = %g$"%xmax)
+        ax[ii,0].plot(x,fr)
+        ax[ii,0].set_ylim([-1,1])
+        ax[ii,0].set_ylabel(r"$f(x)$",fontsize=18)
+        ax[ii,0].legend(loc='lower right',prop={'size':8})
+        im = ax[ii,1].matshow(Cnk,origin='lower',vmin=-2,vmax=2,cmap='coolwarm',extent=(-nmax,nmax,-kmax,kmax))
+        ax[ii,1].set_ylabel(r"$k$",fontsize=18)
+        ax[ii,1].xaxis.set_ticks_position('bottom')
+        ax[ii,1].set_aspect('equal',adjustable='box-forced')
+        #ax[ii,0].set_aspect('equal',adjustable='box-forced')
+    ax[-1,0].set_xlabel(r"$x$",fontsize=18)
+    ax[-1,1].set_xlabel(r"$n$",fontsize=18)
+    ax[0,0].set_title(r"$f(x)=\frac{2}{\pi}\arctan(ax)$",fontsize=18)
+    ax[0,1].set_title(r"$C_{n,k}$",fontsize=18)
+
+    cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])
+    fig.colorbar(im, cax=cax)
+    plt.savefig('explore_xrange.pdf')
 
 if __name__=='__main__':
     # plot_basic_wavelets()
-    #test_decomp()
-    build_intuition()
+    test_decomp()
+    #build_intuition()

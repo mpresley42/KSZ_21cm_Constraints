@@ -1,7 +1,8 @@
 import numpy as np
 
-run_dir='RandSeed_111_Sigma8_0.81577_h_0.68123_Omm_0.30404_Omb_0.04805_ns_0.96670_Rmfp_35.00_Tvir_60000.0_Squiggly_40.00_lnAs_3.06400'
-data_dir='/Users/mpresley/Research/KSZ_21cm_Constraints/data/'+run_dir+'/'
+#run_dir='RandSeed_111_Sigma8_0.81577_h_0.68123_Omm_0.30404_Omb_0.04805_ns_0.96670_Rmfp_35.00_Tvir_60000.0_Squiggly_40.00_lnAs_3.06400'
+run_dir='RandSeed_111_Sigma8_0.83000_h_0.67000_Omm_0.32000_Omb_0.02200_ns_0.96000_Rmfp_30.00_Tvir_16000.0_Squiggly_31.50_lnAs_3.06400'
+data_dir='/Users/mpresley/Research/KSZ_21cm_Constraints/data/'+run_dir+'/smallboxes/test/'
 #data_dir='/Users/mpresley/Research/KSZ_21cm_Constraints/data/small/'+run_dir+'/'
 
 box_headers = {'density':"updated_smoothed_deltax_",'vx':"updated_vx_",'vy':"updated_vy_",'vz':"updated_vz_",'v':"updated_v_",'nf':"xH_nohalos_"} 

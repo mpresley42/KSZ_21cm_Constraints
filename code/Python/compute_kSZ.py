@@ -349,27 +349,35 @@ if __name__=='__main__':
     print cfg.pms['zi'], cfg.pms['zf']
 
     density = get_int_box_data('density')
-    z,d,tau = compute_tau(density,nf,pretty=True)
+    #z,d,tau = compute_tau(density,nf,pretty=False)
     #plt.plot(z,tau); plt.show()
     #for kk in range(nf.shape[2]): print nf[200,200,kk]
     #plt.plot(z,nf[200,200]); plt.show()
 
     #get_nxnyr_cd()
 
-    # ndotq = np.load('ndotq.npy')
-    # dTkSZ = compute_kSZ_test(ndotq)
+    # ndotq = compute_ndotq()
+    # np.save('ndotq_propercat',ndotq)
+    # print "Got ndotq!"
+
+    #ndotq = np.load('ndotq.npy')
+    #dTkSZ = compute_kSZ_linear(ndotq)
     # print "dTkSZ = ",dTkSZ
-    #np.save('kSZ_array_linear_larger',dTkSZ)
+    #np.save('dTkSZ_propercat',dTkSZ)
     
-    #dTkSZ = np.load('kSZ_array_linear_larger.npy')
+    dTkSZ = np.load('dTkSZ_propercat.npy')
+    print np.mean(np.abs(dTkSZ))
     
-    # plt.imshow(dTkSZ,origin='lower')
-    # plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
-    # plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
-    # cb=plt.colorbar()
-    # cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
-    # plt.hist(dTkSZ)
-    # plt.show()
+    #print dTkSZ.shape
+
+    plt.imshow(dTkSZ,origin='lower')
+    plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
+    plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
+    cb=plt.colorbar()
+    cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
+    plt.show()
+    plt.hist(dTkSZ)
+    plt.show()
 
     #compute_kSZ_pspec(dTkSZ,pdw=100,pretty=True)
 
