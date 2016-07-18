@@ -66,7 +66,7 @@ def get_int_box_data(field):
     catbox = np.concatenate(sorted_box_list,axis=2)
     cfg.pms['shape']=catbox.shape
     print 'catbox',catbox.shape
-    np.save('{5}{0}zstart{1}_zend{2}_FLIPBOXES1_{3}_{4}Mpc_lighttravel_cat'.format(cfg.box_headers[field],cfg.pms['zi'],cfg.pms['zf'],int(box_zMpc),int(box_xyMpc),cfg.data_dir),catbox)
+    np.save('{5}{0}zstart{1}_zend{2}_FLIPBOXES1_{3}_{4}Mpc_lighttravel_cat'.format(cfg.box_headers[field],cfg.pms['zi'],cfg.pms['zf'],int(box_zMpc),int(box_Mpc),cfg.data_dir),catbox)
     return catbox 
 
 def plot_int_box_data(field):

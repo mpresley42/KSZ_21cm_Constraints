@@ -61,10 +61,11 @@ def compute_ndotq():
 # Create a grid of x,y,z coordinates for the standard box
 def get_xyz_gd():
     box = cfg.pms['shape']
-    xcd = np.linspace(-box[0]/2,box[0]/2,num=box[0])
-    ycd = np.linspace(-box[1]/2,box[1]/2,num=box[1])
+    boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
+    xcd = np.linspace(-boxMpc[0]/2,boxMpc[0]/2,num=box[0])
+    ycd = np.linspace(-boxMpc[1]/2,boxMpc[1]/2,num=box[1])
     z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
-    zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
+    zcd = d[0] + np.linspace(-boxMpc[2]/2,boxMpc[2]/2,num=box[2])
     xyzgd = np.meshgrid(xcd,ycd,zcd)
     xcd,ycd,zcd = None,None,None
     return xyzgd
@@ -72,7 +73,8 @@ def get_xyz_gd():
 # Create 1D arrays of nx,ny,r coords for the standard box
 def get_nxnyr_cd():
     box = cfg.pms['shape']
-    lx = box[0]/2.; ly = box[1]/2.; lz = box[2]
+    boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
+    lx = boxMpc[0]/2.; ly = boxMpc[1]/2.; lz = boxMpc[2]
     z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
     
     # front of box -- don't use bc grid will extend
@@ -119,8 +121,9 @@ def regrid(ndotq):
  # find the indices of the closest point on the regular xyz grid
     z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
     box = np.array(cfg.pms['shape'])
-    xyz_0 = -box/2.+np.array([0,0,d[0]])
-    xyz_n = box/2.+np.array([0,0,d[0]])
+    boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
+    xyz_0 = -boxMpc/2.+np.array([0,0,d[0]])
+    xyz_n = boxMpc/2.+np.array([0,0,d[0]])
     xyz_delta = (xyz_n - xyz_0)/box
     n_igd = ((n_xgd - xyz_0[0])/xyz_delta[0]).round().clip(0,box[0]-1).astype(int)
     n_jgd = ((n_ygd - xyz_0[1])/xyz_delta[1]).round().clip(0,box[1]-1).astype(int)
@@ -143,8 +146,9 @@ def regrid_linear(ndotq):
  # find the indices of the closest (floor) point on the regular xyz grid
     z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
     box = np.array(cfg.pms['shape'])
-    xyz_0 = -box/2.+np.array([0,0,d[0]])
-    xyz_n = box/2.+np.array([0,0,d[0]])
+    boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
+    xyz_0 = -boxMpc/2.+np.array([0,0,d[0]])
+    xyz_n = boxMpc/2.+np.array([0,0,d[0]])
     xyz_delta = (xyz_n - xyz_0)/box
     n_igd = ((n_xgd - xyz_0[0])/xyz_delta[0]).floor().clip(0,box[0]-1).astype(int)
     n_jgd = ((n_ygd - xyz_0[1])/xyz_delta[1]).floor().clip(0,box[1]-1).astype(int)
@@ -209,7 +213,8 @@ def compute_kSZ_test(ndotq=None):
     # ndotq, tau
     # z coordinate axis
     box = cfg.pms['shape']
-    zcd = d[0] + np.linspace(-box[2]/2,box[2]/2,num=box[2])
+    boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
+    zcd = d[0] + np.linspace(-boxMpc[2]/2,boxMpc[2]/2,num=box[2])
     # Loop over angles
     dTkSZ = 0
     ii=200; jj=200
@@ -349,35 +354,35 @@ if __name__=='__main__':
     print cfg.pms['zi'], cfg.pms['zf']
 
     density = get_int_box_data('density')
-    #z,d,tau = compute_tau(density,nf,pretty=False)
-    #plt.plot(z,tau); plt.show()
+    z,d,tau = compute_tau(density,nf,pretty=False)
+    plt.plot(z,tau); plt.show()
     #for kk in range(nf.shape[2]): print nf[200,200,kk]
     #plt.plot(z,nf[200,200]); plt.show()
 
     #get_nxnyr_cd()
 
     # ndotq = compute_ndotq()
-    # np.save('ndotq_propercat',ndotq)
+    # np.save('ndotq_mex',ndotq)
     # print "Got ndotq!"
 
     #ndotq = np.load('ndotq.npy')
-    #dTkSZ = compute_kSZ_linear(ndotq)
+    # dTkSZ = compute_kSZ_linear(ndotq)
     # print "dTkSZ = ",dTkSZ
-    #np.save('dTkSZ_propercat',dTkSZ)
+    # np.save('dTkSZ_mes',dTkSZ)
     
-    dTkSZ = np.load('dTkSZ_propercat.npy')
-    print np.mean(np.abs(dTkSZ))
+    # dTkSZ = np.load('dTkSZ_mes.npy')
+    # print np.mean(np.abs(dTkSZ))
     
     #print dTkSZ.shape
 
-    plt.imshow(dTkSZ,origin='lower')
-    plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
-    plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
-    cb=plt.colorbar()
-    cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
-    plt.show()
-    plt.hist(dTkSZ)
-    plt.show()
+    # plt.imshow(dTkSZ,origin='lower')
+    # plt.xlabel(r"$x\ (\mathrm{Mpc})$",fontsize=18)
+    # plt.ylabel(r"$y\ (\mathrm{Mpc})$",fontsize=18)
+    # cb=plt.colorbar()
+    # cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
+    # plt.show()
+    # plt.hist(dTkSZ)
+    # plt.show()
 
     #compute_kSZ_pspec(dTkSZ,pdw=100,pretty=True)
 
