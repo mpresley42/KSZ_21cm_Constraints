@@ -97,72 +97,15 @@ def get_nxnyr_cd():
     rcd = np.linspace(d[0],r_max,box[2])
     return nxcd,nycd,rcd
 
-# Create a regular grid of nx,ny,r coords for the standard box
-def get_nxnyr_gd():
-    nxcd,nycd,rcd = get_nxnyr_cd()
-    ngd = np.meshgrid(nxcd,nycd,rcd)
-    return ngd
-
-# Find the xyz values that correspond to the nx,ny,r coordinate grid
-def get_corresp_xyz_gd():
- # create new nx,ny,r coordinate grids
-    ngd = get_nxnyr_gd()
- # find the xyz values that correspond to the nx,ny,r coordinate grid
-    n_xgd = ngd[0]*ngd[2]
-    n_ygd = ngd[1]*ngd[2]
-    n_zgd = np.sqrt(ngd[2]*ngd[2] - n_xgd*n_xgd - n_ygd*n_ygd)
-    ngd=None
-    return n_xgd,n_ygd,n_zgd
-
-# Use nearest-neighbor to create a box on an nx,ny,nz grid
-def regrid(ndotq):
- # find the xyz values that correspond to the nx,ny,r coordinate grid
-    n_xgd,n_ygd,n_zgd = get_corresp_xyz_gd()
- # find the indices of the closest point on the regular xyz grid
-    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
-    box = np.array(cfg.pms['shape'])
-    boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
-    xyz_0 = -boxMpc/2.+np.array([0,0,d[0]])
-    xyz_n = boxMpc/2.+np.array([0,0,d[0]])
-    xyz_delta = (xyz_n - xyz_0)/box
-    n_igd = ((n_xgd - xyz_0[0])/xyz_delta[0]).round().clip(0,box[0]-1).astype(int)
-    n_jgd = ((n_ygd - xyz_0[1])/xyz_delta[1]).round().clip(0,box[1]-1).astype(int)
-    n_kgd = ((n_zgd - xyz_0[2])/xyz_delta[2]).round().clip(0,box[2]-1).astype(int)
-    print np.amax(n_igd),np.amax(n_jgd),np.amax(n_kgd)
-    print np.amin(n_igd),np.amin(n_jgd),np.amin(n_kgd)
-    # plt.imshow(n_igd[:,:,0],origin='lower'); plt.show()
-    # plt.imshow(n_jgd[:,:,0],origin='lower'); plt.show()
-    # plt.imshow(n_kgd[0,:,:],origin='lower'); plt.show()
- # create the new grid of ndotq
-    ndotq_ncd = ndotq[n_igd,n_jgd,n_kgd]
-    n_igd=None; n_jgd=None; n_kgd=None
-    if True: np.save('ndotq_ncd',ndotq_ncd)
-    return ndotq_ncd
-
-# Use linear interpolation to create a box on an nx,ny,nz grid
-def regrid_linear(ndotq):
- # find the xyz values that correspond to the nx,ny,r coordinate grid
-    n_xgd,n_ygd,n_zgd = get_corresp_xyz_gd()
- # find the indices of the closest (floor) point on the regular xyz grid
-    z,d = get_z_d(cfg.pms['zi'],cfg.pms['zf'])
-    box = np.array(cfg.pms['shape'])
-    boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
-    xyz_0 = -boxMpc/2.+np.array([0,0,d[0]])
-    xyz_n = boxMpc/2.+np.array([0,0,d[0]])
-    xyz_delta = (xyz_n - xyz_0)/box
-    n_igd = ((n_xgd - xyz_0[0])/xyz_delta[0]).floor().clip(0,box[0]-1).astype(int)
-    n_jgd = ((n_ygd - xyz_0[1])/xyz_delta[1]).floor().clip(0,box[1]-1).astype(int)
-    n_kgd = ((n_zgd - xyz_0[2])/xyz_delta[2]).floor().clip(0,box[2]-1).astype(int)
- # create the interpolated grid of ndotq
- # y_* = y_j + (y_j+1 - y_j)(x_* - x_j)/(x_j+1 - x_j)
-    # ndotq_ncd = ndotq[n_igd,n_jgd,n_kgd] + 
-    #             (ndotq[n_igd+1,n_jgd+1,n_kgd+1]-ndotq[n_igd,n_jgd,n_kgd])*
-    #             (n_xgd)
-
 def compute_kSZ_linear(ndotq=None):
     if ndotq==None: ndotq = compute_ndotq()
     print "Have ndotq!"
     # ndotq    
+ # Define box shape parameters
+    box = cfg.pms['shape']
+    boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
+    lx = boxMpc[0]/2.; ly = boxMpc[1]/2.; lz = boxMpc[2]
+    dxyz = boxMpc/box
  # Get tau
     nf = get_int_box_data('nf')
     density = get_int_box_data('density')
@@ -185,70 +128,11 @@ def compute_kSZ_linear(ndotq=None):
                 y = nycd[jj]*rcd[kk]
                 z = np.sqrt(rcd[kk]*rcd[kk]-x*x-y*y)
                 # Find closest xyz indices
-                dx=1.;dy=1;dz=1
-                xi = int(np.floor(x/dx))
-                yj = int(np.floor(y/dy))
-                zk = int(np.floor((z-d[0])/dz))
-                try:
-                    dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])*(tau[zk+1]-tau[zk])
-                except IndexError:
-                    # print "Index Error"
-                    # print ii,jj,kk
-                    # print x,y,z 
-                    # print xi,yj,zk
-                    pass
+                xi = int(np.floor((lx+x)/dxyz[0]))
+                yj = int(np.floor((ly+y)/dxyz[1]))
+                zk = int(np.floor((z-d[0])/dxyz[2]))
+                dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])*(tau[zk+1]-tau[zk])
     dTkSZ = dTkSZ/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']
-    return dTkSZ 
-
-def compute_kSZ_test(ndotq=None):
-    if ndotq==None: ndotq = compute_ndotq()
-    print "Have ndotq!"
-    # ndotq    
- # Get tau
-    nf = get_int_box_data('nf')
-    density = get_int_box_data('density')
-    zred,d,tau = compute_tau(density,nf)
-    # ndotq, nf, density, tau
-    nf=None; density=None
-    # ndotq, tau
-    # z coordinate axis
-    box = cfg.pms['shape']
-    boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
-    zcd = d[0] + np.linspace(-boxMpc[2]/2,boxMpc[2]/2,num=box[2])
-    # Loop over angles
-    dTkSZ = 0
-    ii=200; jj=200
-    # Loop over z direction
-    for kk in range(box[2]-1):
-        try:
-            dTkSZ += np.exp(-tau[kk])*ndotq[ii,jj,kk]*(1+zred[kk])*(tau[kk+1]-tau[kk])
-        except IndexError:
-            print "Index Error: ",kk
-            pass
-    dTkSZ = dTkSZ/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']
-    return dTkSZ
-
-def compute_kSZ(ndotq=None):
-    if ndotq==None: ndotq = compute_ndotq()
-    print "Have ndotq!"
-    # ndotq    
- # Get tau
-    nf = get_int_box_data('nf')
-    density = get_int_box_data('density')
-    z,d,tau = compute_tau(density,nf)
-    # ndotq, nf, density, tau
-    nf=None; density=None
-    # ndotq, tau
-    print "Beginning regrid!"
-    ndotq_ncd = regrid(ndotq)
-    ndotq=None
-    print "Regrid complete!"
-    # ndotq_ncd, tau
- # Compute the kSZ signal
-    fn = np.exp(-tau)*ndotq_ncd/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']*(1+z) # (Mpc/s)(m/s)^-1(m/Mpc)(K) = K
-    dTkSZ = sp.integrate.trapz(fn,x=tau,axis=2) # K
-    # ^ an array w/ axes theta and phi
-    fn = None
     return dTkSZ 
 
 # 2d Fourier Transform (note: this uses the numpy convention, not the cosmology convention)
@@ -347,10 +231,7 @@ def compute_kSZ_pspec(dTkSZ,mask=None,pdw=512,n=500,pretty=True):
     return lbins,dTkSZ_P,area
 
 if __name__=='__main__':
-    # test for compute_tau()
-    
-    nf = get_int_box_data('nf')
-    
+    nf = get_int_box_data('nf')    
     print cfg.pms['zi'], cfg.pms['zf']
 
     density = get_int_box_data('density')
@@ -386,12 +267,5 @@ if __name__=='__main__':
 
     #compute_kSZ_pspec(dTkSZ,pdw=100,pretty=True)
 
-    # LINEAR INTERPOLATION
-
     # dTkSZ = np.load('kSZ_array.npy')
     # compute_kSZ_pspec(dTkSZ)
-
-    # also look at cube rotating thing in 21cm fast
-    # ask Nick to save a sample of the cubes he is running
-    # compare to reionization history
-    # look at Messenger paper and look at the parameters he used
