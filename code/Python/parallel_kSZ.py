@@ -166,7 +166,7 @@ def compute_i_kSZ_linear(ibox,ndotq=None):
                 zk = int(np.floor((z-d[0])/dxyz[2]))
                 #print xi,yj,zk
                 #dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])*(tau[zk+1]-tau[zk])
-                dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])**2*(d[zk+1]-d[zk])
+                dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])*(d[zk+1]-d[zk])
     #dTkSZ = dTkSZ/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']
     dTkSZ = dTkSZ*cfg.pms['sigT']*cfg.pms['nb0']/cfg.pms['c']*mToMpc**2*cfg.pms['Tcmb']
     if True: np.save('{0}dTkSZ_{1}'.format(cfg.data_dir,ibox),dTkSZ)
