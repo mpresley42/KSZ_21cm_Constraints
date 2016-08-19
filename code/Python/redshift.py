@@ -9,7 +9,7 @@ fp = lambda z: (cfg.pms['c'] / cfg.pms['H0']) / ((1+z)*np.sqrt(cfg.pms['Omm']*(1
 def redshift_to_space(zi=0, zf=20, num=1000, proper=False):
     """Takes in a starting and ending redshift and 
        returns an array of num redshifts and an array 
-       of their corresponding comoving distances."""
+       of their corresponding comoving distances in Mpc."""
     dz = (zf-zi)/num
     z0 = np.linspace(0,zi,num=num)
     if proper: fn0 = fp(z0)
@@ -22,7 +22,7 @@ def redshift_to_space(zi=0, zf=20, num=1000, proper=False):
     return z,d
 
 def space_to_redshift(d,zi=5,zf=8,proper=False):
-    """Takes in an array of comoving distances and returns 
+    """Takes in an array of comoving distances in Mpc and returns 
        the corresponding array of redshifts."""
     z0,d0 = redshift_to_space(zi=zi,zf=zf,num=10000,proper=proper)
     z = np.interp(d, d0, z0)
@@ -30,8 +30,8 @@ def space_to_redshift(d,zi=5,zf=8,proper=False):
 
 def get_z_d(zi,zf,dlen=None,proper=False):
     """Takes in a starting and ending redshift and 
-       returns arrays of redshifts and comoving distances for 
-       the coordinates of the boxes."""
+       returns arrays of redshifts and comoving distances  
+       in Mpc for the coordinates of the boxes."""
     z0,d0 = redshift_to_space(zi=zi,zf=zf,num=1000,proper=proper)
     if dlen==None: d = np.linspace(d0[0],d0[-1],cfg.pms['shape'][2])
     else: d = np.linspace(d0[0],d0[-1],dlen)
