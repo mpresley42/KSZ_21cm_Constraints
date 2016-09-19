@@ -218,12 +218,12 @@ class Box21cm:
     ##########################
     # Create a grid of x,y,z coordinates for the standard box
     def get_xyz_cd(self):
-        box = self.sim.pms['ishape']
+        boxsh = self.sim.pms['ishape']
         boxMpc = np.array([self.sim.pms['xyMpc'],self.sim.pms['xyMpc'],self.sim.pms['zMpc']])
-        xcd = np.arange(-boxMpc[0]/2,boxMpc[0]/2,boxMpc[0]/box[0])
-        ycd = np.linspace(-boxMpc[1]/2,boxMpc[1]/2,boxMpc[1]/box[1])
+        xcd = np.arange(-boxMpc[0]/2.,boxMpc[0]/2.,float(boxMpc[0])/boxsh[0])
+        ycd = np.arange(-boxMpc[1]/2.,boxMpc[1]/2.,float(boxMpc[1])/boxsh[1])
         z,d = self.get_z_d(self.ibox)
-        zcd = d[0] + np.arange(0,boxMpc[2],boxMpc[2]/box[2])
+        zcd = d[0] + np.arange(0,boxMpc[2],float(boxMpc[2])/boxsh[2])
         return xcd,ycd,zcd
     def get_xyz_gd(self):
         xcd,ycd,zcd = self.get_xyz_cd()
@@ -235,7 +235,7 @@ class Box21cm:
         boxMpc = np.array([self.sim.pms['xyMpc'],self.sim.pms['xyMpc'],self.sim.pms['zMpc']]) # size of ibox in Mpc
         lx = boxMpc[0]/2.; ly = boxMpc[1]/2.; lz = boxMpc[2]*self.itot # size of total box in Mpc
         z,d = self.sim.get_tot_z_d() # z,d for total box
-        zi,di = self.get_i_z_d() # z,d for ibox
+        zi,di = self.get_z_d() # z,d for ibox
 
         # back of box -- throws away half the box but whatever
         df = d[0]+lz # back of total box

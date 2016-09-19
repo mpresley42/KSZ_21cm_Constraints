@@ -83,6 +83,7 @@ def compute_i_ndotq(ibox):
  # Find the density and ionization weighting for the velocity field q
     q0 = (1-nf)*(1+density)
     nf = None; density = None
+    #np.save('{0}/old_generated_data/q0.npy'.format(cfg.data_dir),q0)
     # q0
     z,d = get_i_z_d(ibox)
  # Get the spatial coordinates of all box cells
@@ -96,17 +97,17 @@ def compute_i_ndotq(ibox):
         ndotq += q0*vi*xyzgd[ii]/rgd
     # q0, xyzgd (x3), rgd, ndotq, vi
     vi = None; q0=None; xyzgd=None; rgd=None
-    if True: np.save('{0}ndotq_{1}'.format(cfg.data_dir,ibox),ndotq)
+    if True: np.save('{0}/old_generated_data/ndotq_{1}'.format(cfg.data_dir,ibox),ndotq)
     return ndotq
 
 # Create a grid of x,y,z coordinates for the standard box
 def get_i_xyz_cd(ibox):
     box = cfg.pms['shape']
     boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
-    xcd = np.arange(-boxMpc[0]/2,boxMpc[0]/2,boxMpc[0]/box[0])
-    ycd = np.linspace(-boxMpc[1]/2,boxMpc[1]/2,boxMpc[1]/box[1])
+    xcd = np.arange(-boxMpc[0]/2,boxMpc[0]/2,float(boxMpc[0])/box[0])
+    ycd = np.arange(-boxMpc[1]/2,boxMpc[1]/2,float(boxMpc[1])/box[1])
     z,d = get_i_z_d(ibox)
-    zcd = d[0] + np.arange(0,boxMpc[2],boxMpc[2]/box[2])
+    zcd = d[0] + np.arange(0,boxMpc[2],float(boxMpc[2])/box[2])
     return xcd,ycd,zcd
 def get_i_xyz_gd(ibox):
     xcd,ycd,zcd = get_i_xyz_cd(ibox)
@@ -139,7 +140,7 @@ def compute_i_kSZ_linear(ibox,ndotq=None):
  # Define box shape parameters
     box = cfg.pms['shape']
     boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
-    lx = boxMpc[0]/2.; ly = boxMpc[1]/2.; lz = boxMpc[2]
+    lx = boxMpc[0]/2.; ly = boxMpc[1]/2.; lz = boxMpc[2]*cfg.pms['itot']
     dxyz = boxMpc/box
  # Get tau
     zred,dp,tau = compute_i_tau(ibox)
@@ -149,11 +150,9 @@ def compute_i_kSZ_linear(ibox,ndotq=None):
     nxcd,nycd,rcd = get_i_nxnyr_cd(ibox)
     # Loop over angles
     dTkSZ = np.zeros([len(nxcd),len(nycd)])
-    pix = np.zeros(len(rcd)-1)
-    pix2 = np.zeros(len(rcd)-1)
-    for ii in (100,):#len(nxcd)):
+    for ii in range(128):#len(nxcd)):
         print ii
-        for jj in (100,):#len(nycd)):
+        for jj in range(128):#len(nycd)):
             # Loop over z direction
             for kk in range(len(rcd)-1):
                 # Find corresponding xyz coord
@@ -164,17 +163,18 @@ def compute_i_kSZ_linear(ibox,ndotq=None):
                 xi = int(np.floor((lx+x)/dxyz[0]))
                 yj = int(np.floor((ly+y)/dxyz[1]))
                 zk = int(np.floor((z-d[0])/dxyz[2]))
-                #print xi,yj,zk
                 #dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])*(tau[zk+1]-tau[zk])
                 dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])*(d[zk+1]-d[zk])
-    #dTkSZ = dTkSZ/cfg.pms['c']*mToMpc*cfg.pms['Tcmb']
     dTkSZ = dTkSZ*cfg.pms['sigT']*cfg.pms['nb0']/cfg.pms['c']*mToMpc**2*cfg.pms['Tcmb']
-    if True: np.save('{0}dTkSZ_{1}'.format(cfg.data_dir,ibox),dTkSZ)
+    if True: np.save('{0}/old_generated_data/dTkSZ_{1}'.format(cfg.data_dir,ibox),dTkSZ)
     return dTkSZ 
 
 if __name__=='__main__':
     ibox = int(sys.argv[1])
     nf = get_i_box_data('nf',ibox,itot=8)
+
+    # xyzcd = get_i_xyz_cd(0)
+    # np.savez('{0}/old_generated_data/xyzcd0.npz'.format(cfg.data_dir),*xyzcd)
 
     # for ii in range(8):
     #     z,d = get_i_z_d(ii)
@@ -202,8 +202,8 @@ if __name__=='__main__':
     #     ndotq = compute_i_ndotq(ibox) 
 
     #ndotq = compute_i_ndotq(ibox)
-    ndotq = np.load('{0}ndotq_{1}.npy'.format(cfg.data_dir,ibox))
 
+    ndotq = np.load('{0}/old_generated_data/ndotq_{1}.npy'.format(cfg.data_dir,ibox))
     dTkSZ = compute_i_kSZ_linear(ibox,ndotq)     
     
     # dTkSZ = compute_i_kSZ_test(ibox)
