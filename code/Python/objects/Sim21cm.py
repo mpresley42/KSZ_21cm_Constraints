@@ -5,7 +5,27 @@ import fnmatch as fnm
 import re
 import os 
 
-box_headers = {'density':"updated_smoothed_deltax_",'vx':"updated_vx_",'vy':"updated_vy_",'vz':"updated_vz_",'nf':"xH_nohalos_"} 
+BOX_HEADERS = {'density':"updated_smoothed_deltax_",'vx':"updated_vx_",'vy':"updated_vy_",'vz':"updated_vz_",'nf':"xH_nohalos_"} 
+
+DEFAULT_PRMS  {
+    Sigma8: 0.83,
+    h: 0.67,
+    Omm: 0.32,
+    YBBNp: 0.24,
+    mp: 1.672622e-27, # kg  
+    G: 6.67384e-11, # N m^2 kg^-2
+    c: 2.99792458e8, # m/s
+    mHe: 6.6464764e-27, # kg
+    mH: 1.6737236e-27, # kg
+    mp: 1.6726219e-27, # kg
+    sigT: 6.65246e-29, # m^2
+    Tcmb: 2.725e6, # microK
+    mToMpc:   3.086e22, # meters in a Mpc
+}
+DEFAULT_PRMS['Omb'] = 0.022 / (DEFAULT_PRMS['h']**2)
+DEFAULT_PRMS['H0'] = DEFAULT_PRMS['h'] * 3.241e-18 # s^-1 # = h * 100 km/s/Mpc
+DEFAULT_PRMS['mu'] = 1.0 + DEFAULT_PRMS['YBBNp']*0.25*(DEFAULT_PRMS['mHe']/DEFAULT_PRMS['mH']-1.0)
+DEFAULT_PRMS['nb0'] = (3.*DEFAULT_PRMS['H0']**2*DEFAULT_PRMS['Omb'])/(8.*np.pi*DEFAULT_PRMS['G']*DEFAULT_PRMS['mu']* DEFAULT_PRMS['mp']) # at z=0. scales with (1+z)^3
 
 def match_file(location,pattern):
     for file in os.listdir(location):
@@ -24,28 +44,56 @@ def nums_from_string(f):
     # regex magic that extracts numbers from a string
     return [float(i) for i in re.findall("[-+]?\d+[\.]?\d*",f)] 
 
+def dirname2params(dirname):
+    params = run_dir.split('_')
+    pms = {}
+    for ii in xrange(0,len(params),2):
+        pms[params[ii]] = float(params[ii+1])
+    return pms 
+
+def get_npy_list(data_dir):
+    npy_list = []
+    for field in BOX_HEADERS.keys():
+        flist = match_files(self.data_dir,'{0}*lighttravel_cat_*_*.npy'.format(BOX_HEADERS[field]))
+        assert(len(flist) >= 1)
+        npy_list += flist
+    return npy_list
+
+
+class File21cmFAST(np.core.memmap):
+    '''Encase data and give access.'''
+    def __init__(self, filename, dtype=np.float32):
+        shape = self.parse(filename)
+        np.core.memmap.__init__(self, filename, shape=shape, dtype=dtype)
+    def parse(self, filename):
+        self.zi, self.zf, _, sz, sz_Mpc = [float(i) for i in re.findall("[-+]?\d+[\.]?\d*",f)] 
+        self.px2Mpc = float(sz_Mpc) / float(sz) # conversion from pixel size to Mpc
+        return (int(sz),) * 3
+
+class Simulation:
+    def __init__(self, filelist_21cmfast):
+        self.files = filelist_21cmfast
+    def set_constants(self):
+        self.pms = DEFAULT_PRMS.copy()
+    def __getslice__(self,i,j):
+        '''Slice a data cube along the z=redshift axis.'''
+        return DataCube(self.data[i:j])
+    def __getitem__(self,i):
+        return DataCube(self.data[i])
+        
+    
+
 #############################################
 # One run of a 21cmFAST simulation
 #############################################
 class Sim21cm:
-    def __init__(self,data_dir,run_dir,itot=8):
-        self.data_dir = data_dir 
-        self.run_dir = run_dir
+    def __init__(self, npy_list, prmdict, itot=8):
+        self.npy_list = npy_list
         self.itot = itot
-        self.pms = {}
+        self.pms = prmdict
         self.set_constants()
-        self.get_params(run_dir)
         self.setup_iboxes()
         self.set_ibox_shape()
-
-    ##########################
-    # set up pms
-    ##########################
-    def get_params(self,run_dir):
-     # return a dictionary of parameters based off of the directory name
-        params=run_dir.split('_')
-        for ii in xrange(0,len(params),2):
-            self.pms[params[ii]] = float(params[ii+1])
 
     def set_constants(self):
         self.pms['Sigma8']=0.83
@@ -71,30 +119,17 @@ class Sim21cm:
         self.pms['mToMpc'] = 3.086e22 # meters in a Mpc
 
     def set_ibox_shape(self):
-        f = match_file(self.data_dir,'{0}*lighttravel_cat_0_{1}.npy'.format(box_headers['nf'],self.itot))
-        if f==None:
-            raise RuntimeError('No file found for field nf, ibox 0 when getting ibox shape')
-        else:  
-            self.check_assign_box_pms(f)
-            box = np.load(self.data_dir+f)
-            self.pms['ishape'] = box.shape
+        f = [f for f in self.npy_list \
+                if fnm.fnmatch(f, '{0}*lighttravel_cat_0_{1}.npy'.format(BOX_HEADERS['nf'],self.itot))]
+        f = f[0] # takes first match, IndexError means file is missing
+        self.check_assign_box_pms(f)
+        box = np.load(self.data_dir+f)
+        self.pms['ishape'] = box.shape
 
-    ##########################
-    # set up box data
-    ##########################
-    def setup_iboxes(self):
-        for field in box_headers.keys():
-            # check if iboxes exist
-            flist = match_files(self.data_dir,'{0}*lighttravel_cat_*_*.npy'.format(box_headers[field]))
-            if flist == []:  
-                self.create_iboxes(field)
-            f = match_file(self.data_dir,'{0}*lighttravel_cat_0_*.npy'.format(box_headers[field]))            
-            self.check_assign_box_pms(f)
-            print "set up iboxes for field %s" % field
-            
     def create_iboxes(self,field):
+        # XXX this may need to move somewhere else, for now, vestigial
         # load all of the integrated lighttravel boxes
-        flist = match_files(self.data_dir,'{0}*lighttravel'.format(box_headers[field]))
+        flist = match_files(self.data_dir,'{0}*lighttravel'.format(BOX_HEADERS[field]))
         box_list = []; zi_list = []; zf_list = []; box_zMpc = 0;
         if len(flist)==0: raise RuntimeError('No file found for field {0}'.format(field))
         for f in flist:
@@ -120,7 +155,7 @@ class Sim21cm:
         catbox=None
         for ii,box in enumerate(ibox_list):
             np.save('{5}{0}zstart{1}_zend{2}_FLIPBOXES1_{3}_{4}Mpc_lighttravel_cat_{6}_{7}'.format(
-                box_headers[field],boxpms['zi'],boxpms['zf'],boxpms['zMpc'],boxpms['xyMpc'],self.data_dir,ii,self.itot),box)
+                BOX_HEADERS[field],boxpms['zi'],boxpms['zf'],boxpms['zMpc'],boxpms['xyMpc'],self.data_dir,ii,self.itot),box)
 
     def parse_ibox_filename(self,f):
         zi,zf,_,box_zMpc,box_xyMpc,_,itot = nums_from_string(f)
@@ -195,7 +230,7 @@ class Box21cm:
     ##########################
     def get_data(self,field):
         # check if ibox exists
-        f = match_file(self.sim.data_dir,'{0}*lighttravel_cat_{1}_*.npy'.format(box_headers[field],self.ibox))
+        f = match_file(self.sim.data_dir,'{0}*lighttravel_cat_{1}_*.npy'.format(BOX_HEADERS[field],self.ibox))
         if f==None:
             raise RuntimeError('No file found for field {0}, ibox {1}'.format(field,self.ibox))
         else:  
