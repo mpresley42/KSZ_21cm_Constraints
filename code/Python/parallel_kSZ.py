@@ -118,13 +118,14 @@ def get_i_xyz_gd(ibox):
 def get_i_nxnyr_cd(ibox):
     box = cfg.pms['shape']
     boxMpc = np.array([cfg.pms['xyMpc'],cfg.pms['xyMpc'],cfg.pms['zMpc']])
-    lx = boxMpc[0]/2.; ly = boxMpc[1]/2.; lz = boxMpc[2]
+    lx = boxMpc[0]/2.; ly = boxMpc[1]/2.; lz = boxMpc[2]*cfg.pms['itot']
     z,d = get_i_z_d(ibox)
     
     # back of box -- throws away half the box but whatever
     df = d[0]+lz
     nx_max = lx / np.sqrt(lx*lx+df*df) # nx_min = - nx_max
     ny_max = ly / np.sqrt(ly*ly+df*df) # ny_min = - ny_max
+    # I don't think the r min/max are correct here
     r_max = df
     r_min = np.sqrt(d[0]*d[0]+lx*lx+ly*ly) # r_min = d[0]
 
