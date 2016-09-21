@@ -28,6 +28,12 @@ def nums_from_string(f):
 # One run of a 21cmFAST simulation
 #############################################
 class Sim21cm:
+    """This class holds all of the parameters and the data locations
+       for a single run of 21cmFAST. The data is divided along the z 
+       direction into a total of itot number of boxes. This is for 
+       parallelization purposes.
+
+       This class is all consistent with my previous code."""
     def __init__(self,data_dir,run_dir,itot=8):
         self.data_dir = data_dir 
         self.run_dir = run_dir
@@ -42,12 +48,18 @@ class Sim21cm:
     # set up pms
     ##########################
     def get_params(self,run_dir):
-     # return a dictionary of parameters based off of the directory name
+        """
+        Sets parameters based off of the name of the directory 
+        that 21cmFAST stores the data in.
+        """
         params=run_dir.split('_')
         for ii in xrange(0,len(params),2):
             self.pms[params[ii]] = float(params[ii+1])
 
     def set_constants(self):
+        """
+        Sets standard cosmological parameters and physical constants.
+        """
         self.pms['Sigma8']=0.83
         self.pms['h']=0.67
         self.pms['Omm']=0.32
@@ -71,6 +83,9 @@ class Sim21cm:
         self.pms['mToMpc'] = 3.086e22 # meters in a Mpc
 
     def set_ibox_shape(self):
+        """
+        Sets the shape of each ibox.
+        """
         f = match_file(self.data_dir,'{0}*lighttravel_cat_0_{1}.npy'.format(box_headers['nf'],self.itot))
         if f==None:
             raise RuntimeError('No file found for field nf, ibox 0 when getting ibox shape')
@@ -83,6 +98,10 @@ class Sim21cm:
     # set up box data
     ##########################
     def setup_iboxes(self):
+        """
+        Loops over all of the box fields, and for each field checks 
+        whether the ibox files exist, and if they don't creates them.
+        """
         for field in box_headers.keys():
             # check if iboxes exist
             flist = match_files(self.data_dir,'{0}*lighttravel_cat_*_*.npy'.format(box_headers[field]))
@@ -93,6 +112,10 @@ class Sim21cm:
             print "set up iboxes for field %s" % field
             
     def create_iboxes(self,field):
+        """
+        Loads the raw 21cmFAST data for a field, divides the box along
+        the z direction and then saves each ibox as an npy.
+        """
         # load all of the integrated lighttravel boxes
         flist = match_files(self.data_dir,'{0}*lighttravel'.format(box_headers[field]))
         box_list = []; zi_list = []; zf_list = []; box_zMpc = 0;
@@ -123,12 +146,21 @@ class Sim21cm:
                 box_headers[field],boxpms['zi'],boxpms['zf'],boxpms['zMpc'],boxpms['xyMpc'],self.data_dir,ii,self.itot),box)
 
     def parse_ibox_filename(self,f):
+        """
+        Gets the parameters saved in the ibox npy filename. 
+        """
         zi,zf,_,box_zMpc,box_xyMpc,_,itot = nums_from_string(f)
         itot = int(itot)
         zMpc = int(box_zMpc)/itot; xyMpc = int(box_xyMpc)
         return zi,zf,zMpc,xyMpc,itot
 
     def check_assign_box_pms(self,f):
+        """
+        If the box's parameters have not been set, it sets the box 
+        parameters based on the file name. 
+        If the box's parameters have been set, it checks that the 
+        parameters in this filename are the same.
+        """
         boxpm_labels = ('zi','zf','zMpc','xyMpc','itot')
         boxpms = self.parse_ibox_filename(f)
         for lab,pm in zip(boxpm_labels,boxpms):
@@ -175,6 +207,8 @@ class Sim21cm:
         return z,d
 
     def get_tot_z_d(self,proper=False):
+        """Gets arrays of redshift and comoving distances that 
+           correspond to the coordinates of the entire concatenated box."""
         z,d = self.get_z_d(self.pms['zi'],self.pms['zf'],
                         dlen=self.pms['ishape'][2]*self.pms['itot'],proper=proper)
         return z,d    
@@ -193,6 +227,7 @@ class Box21cm:
     ##########################
     # box loading
     ##########################
+    # verified
     def get_data(self,field):
         # check if ibox exists
         f = match_file(self.sim.data_dir,'{0}*lighttravel_cat_{1}_*.npy'.format(box_headers[field],self.ibox))
@@ -207,6 +242,7 @@ class Box21cm:
     ##########################
     # box redshift
     ##########################
+    # verified
     def get_z_d(self,proper=False):
         z,d = self.sim.get_tot_z_d(proper=proper)
         zlist = np.array_split(z,self.itot)
@@ -217,6 +253,7 @@ class Box21cm:
     # box coordinates
     ##########################
     # Create a grid of x,y,z coordinates for the standard box
+    # verified
     def get_xyz_cd(self):
         boxsh = self.sim.pms['ishape']
         boxMpc = np.array([self.sim.pms['xyMpc'],self.sim.pms['xyMpc'],self.sim.pms['zMpc']])
@@ -225,6 +262,7 @@ class Box21cm:
         z,d = self.get_z_d(self.ibox)
         zcd = d[0] + np.arange(0,boxMpc[2],float(boxMpc[2])/boxsh[2])
         return xcd,ycd,zcd
+    # verified
     def get_xyz_gd(self):
         xcd,ycd,zcd = self.get_xyz_cd()
         xyzgd = np.meshgrid(xcd,ycd,zcd)

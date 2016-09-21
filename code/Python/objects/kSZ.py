@@ -4,6 +4,7 @@ import numpy as np
 import scipy as sp
 import pylab as plt 
 
+# verified
 def compute_tau(box):
     nf = box.get_data('nf')
     density = box.get_data('density')
@@ -30,6 +31,7 @@ def compute_tau(box):
     if box.ibox==0: return z1,d1,tau[len(d0):]
     else:       return z,d,tau
 
+# verified
 def compute_ndotq(box,save=True):
     nf = box.get_data('nf')
     density = box.get_data('density')
@@ -92,7 +94,7 @@ def compute_kSZ(box,ndotq=None,size=None,save=True):
     elif save: np.save('{0}dTkSZ_{1}_{2}_{3}'.format(box.sim.data_dir,size[0],size[1],box.ibox),dTkSZ)
     return dTkSZ 
 
-def compute_kSZ_pspec(nxcd,nycd,dTkSZ,mask=None,pdw=512,n=100,pretty=True):
+def compute_kSZ_pspec(nxcd,nycd,dTkSZ,mask=None,pdw=512,n=100,pretty=True,save_dir='./'):
  # Apply mask if necessary 
     if mask==None: mask = np.ones_like(dTkSZ)
     else: dTkSZ = dTkSZ*mask
@@ -105,7 +107,7 @@ def compute_kSZ_pspec(nxcd,nycd,dTkSZ,mask=None,pdw=512,n=100,pretty=True):
         plt.clf()
         plt.imshow(dTkSZ,origin='lower')
         cb=plt.colorbar();cb.set_label(r"$\Delta T_{kSZ}$",fontsize=18)
-        plt.savefig('{0}/figures/pspec/dTkSZ.pdf'.format(cfg.data_dir))
+        plt.savefig('{0}dTkSZ.pdf'.format(save_dir))
         #plt.show()
  # Find the Fourier Transform
     lx,ly,dTkSZ_FT = fft_2d(nxcd,nycd,dTkSZ) # [K][Mpc]^2    
@@ -113,7 +115,7 @@ def compute_kSZ_pspec(nxcd,nycd,dTkSZ,mask=None,pdw=512,n=100,pretty=True):
         plt.clf()
         plt.imshow(np.real(dTkSZ_FT),origin='lower')
         cb=plt.colorbar();cb.set_label(r"$Real(\Delta \widetildeT_{kSZ})$",fontsize=18)
-        plt.savefig('{0}/figures/pspec/dTkSZ_FT.pdf'.format(cfg.data_dir))
+        plt.savefig('{0}dTkSZ_FT.pdf'.format(save_dir))
         #plt.show()
  # Find the Power Spectrum
     lbins,dTkSZ_P,area = pspec_2d(lx,ly,dTkSZ_FT,n=n) # [K]^2[Mpc]^4
@@ -123,7 +125,7 @@ def compute_kSZ_pspec(nxcd,nycd,dTkSZ,mask=None,pdw=512,n=100,pretty=True):
         plt.semilogy(lbins,dTkSZ_P)
         plt.ylabel(r"$P(\ell)$",fontsize=18)
         plt.xlabel(r"$\ell$",fontsize=18)
-        plt.savefig('{0}/figures/pspec/dTkSZ_pspec.pdf'.format(cfg.data_dir))
+        plt.savefig('{0}dTkSZ_pspec.pdf'.format(save_dir))
         #plt.show()
     if pretty:
         plt.clf()
@@ -131,10 +133,10 @@ def compute_kSZ_pspec(nxcd,nycd,dTkSZ,mask=None,pdw=512,n=100,pretty=True):
         plt.loglog(lbins,lbins*(lbins+1.)*dTkSZ_P/(2*np.pi))
         plt.ylabel(r"$\Delta_{kSZ}^2=\ell(\ell+1)C_\ell/2\pi [\mu K^2]$",fontsize=18)
         plt.xlabel(r"$\ell$",fontsize=18)
-        plt.savefig('{0}/figures/pspec/dTkSZ_delta_kSZ.pdf'.format(cfg.data_dir))
+        plt.savefig('{0}dTkSZ_delta_kSZ.pdf'.format(save_dir))
         #plt.show()
-    if True: np.save('{0}lbins_{1}'.format(cfg.data_dir,len(nxcd)),lbins)
-    if True: np.save('{0}dTkSZ_P_{1}'.format(cfg.data_dir,len(nxcd)),dTkSZ_P)    
+    if True: np.save('{0}lbins_{1}'.format(save_dir,len(nxcd)),lbins)
+    if True: np.save('{0}dTkSZ_P_{1}'.format(save_dir,len(nxcd)),dTkSZ_P)    
     return lbins,dTkSZ_P,area
 
 
