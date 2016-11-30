@@ -63,7 +63,8 @@ def compute_kSZ(box,ndotq=None,size=None,save=True):
     boxsh = box.ishape # shape of ibox
     boxMpc = np.array([box.sim.pms['xyMpc'],box.sim.pms['xyMpc'],box.sim.pms['zMpc']]) # size of ibox in Mpc
     lx = boxMpc[0]/2.; ly = boxMpc[1]/2.; lz = boxMpc[2]*box.itot # size of total box in Mpc
-    dxyz = boxMpc/boxsh # length of each cell in Mpc
+    dxyz = boxMpc.astype(float)/boxsh # length of each cell in Mpc
+    #print dxyz
  # Get tau
     zred,dp,tau = compute_tau(box)
     zred,d = box.get_z_d(proper=False)
@@ -76,6 +77,7 @@ def compute_kSZ(box,ndotq=None,size=None,save=True):
     for ii in range(size[0]):
         print ii
         for jj in range(size[1]):
+            roverz = 1./np.sqrt(1-nxcd[ii]**2-nycd[jj]**2)
             # Loop over z direction
             for kk in range(len(rcd)-1):
                 # Find corresponding xyz coord
@@ -86,12 +88,47 @@ def compute_kSZ(box,ndotq=None,size=None,save=True):
                 xi = int(np.floor((lx+x)/dxyz[0]))
                 yj = int(np.floor((ly+y)/dxyz[1]))
                 zk = int(np.floor((z-d[0])/dxyz[2]))
+                #print '%.2f %.2f %.2f        %d %d %d' % (x,y,z,xi,yj,zk)
                 if xi < boxsh[0] and yj < boxsh[1] and zk < boxsh[2]-1:
-                    dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])*(d[zk+1]-d[zk])
+                    dTkSZ[ii,jj] += np.exp(-tau[zk])*ndotq[xi,yj,zk]*(1+zred[zk])*(d[zk+1]-d[zk])*roverz
+                # else: 
+                #     print '%.2f %.2f %.2f        %d %d %d' % (x,y,z,xi,yj,zk)
+
 
     dTkSZ = dTkSZ*box.sim.pms['sigT']*box.sim.pms['nb0']/box.sim.pms['c']*box.sim.pms['mToMpc']**2*box.sim.pms['Tcmb']
     if save and size==(len(nxcd),len(nycd)): np.save('{0}dTkSZ_{1}'.format(box.sim.data_dir,box.ibox),dTkSZ)
     elif save: np.save('{0}dTkSZ_{1}_{2}_{3}'.format(box.sim.data_dir,size[0],size[1],box.ibox),dTkSZ)
+    return dTkSZ 
+
+def compute_kSZ_linear(box,size=None,save=True):
+    nf = box.get_data('nf')
+    density = box.get_data('density')
+    vz = box.get_data('vz')
+    # nf, density, vz
+ # Find the density and ionization weighting for the velocity field q
+    ndotq = (1-nf)*(1+density)*vz
+    nf = None; density = None; vz = None
+    print "Have ndotq!"
+    # ndotq    
+ # Define box shape parameters
+    boxsh = box.ishape # shape of ibox
+ # Get tau
+    zred,dp,tau = compute_tau(box)
+    zred,d = box.get_z_d(proper=False)
+    # ndotq, tau
+    if size==None: size = (boxsh[0],boxsh[1])
+    # Loop over x,y directions
+    dTkSZ = np.zeros([boxsh[0],boxsh[1]])
+    for ii in range(size[0]):
+        print ii
+        for jj in range(size[1]):
+            # Loop over z direction
+            for kk in range(boxsh[2]-1):
+                dTkSZ[ii,jj] += np.exp(-tau[kk])*ndotq[ii,jj,kk]*(1+zred[kk])*(d[kk+1]-d[kk])
+
+    dTkSZ = dTkSZ*box.sim.pms['sigT']*box.sim.pms['nb0']/box.sim.pms['c']*box.sim.pms['mToMpc']**2*box.sim.pms['Tcmb']
+    if save and size==(boxsh[0],boxsh[1]): np.save('{0}dTkSZ_linear_{1}'.format(box.sim.data_dir,box.ibox),dTkSZ)
+    elif save: np.save('{0}dTkSZ_linear_{1}_{2}_{3}'.format(box.sim.data_dir,size[0],size[1],box.ibox),dTkSZ)
     return dTkSZ 
 
 def compute_kSZ_pspec(nxcd,nycd,dTkSZ,mask=None,pdw=512,n=100,pretty=True,save_dir='./'):
@@ -137,6 +174,6 @@ def compute_kSZ_pspec(nxcd,nycd,dTkSZ,mask=None,pdw=512,n=100,pretty=True,save_d
         #plt.show()
     if True: np.save('{0}lbins_{1}'.format(save_dir,len(nxcd)),lbins)
     if True: np.save('{0}dTkSZ_P_{1}'.format(save_dir,len(nxcd)),dTkSZ_P)    
-    return lbins,dTkSZ_P,area
+    return lbins,dTkSZ_P
 
 
