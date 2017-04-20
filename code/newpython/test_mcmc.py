@@ -57,7 +57,7 @@ def test_stair_gauss(p0=[5.,4.,3.],p1=[3.,6.,2.],nn=10000,lab=(r'$A$',r'$\mu$',r
     # instantiate mcmc class
     gm = GaussMCMC(dx,dy,np.diag(sigy),model_gauss,jump_gauss,lab)
     # plot staircase
-    gm.stair(p1,nn,truth=p0)#,fname='stair_test.pdf')
+    gm.stair(p1,nn,truth=p0,fname='stair_test_blank.pdf')
 
 if __name__=='__main__':
     #test_plot_data_gauss()
