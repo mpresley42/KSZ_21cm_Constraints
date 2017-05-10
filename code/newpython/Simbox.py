@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import scipy.integrate
+import pylab as plt
 from magic import *
 
 HEADERS = {'density':"updated_smoothed_deltax_",'vx':"updated_vx_",'vy':"updated_vy_",'vz':"updated_vz_",'nf':"xH_nohalos_"} 
@@ -87,9 +88,43 @@ class Sim:
     ##########################
     # redshift
     ##########################
+    
+    # dr/dz in co-moving coordinates
+    fc = lambda self,z: (self.pms['c'] / self.pms['H0']) / np.sqrt(self.pms['Omm']*(1+z)**3+(1.-self.pms['Omm']))
+    # dr/dz in proper coordinates
+    fp = lambda self,z: (self.pms['c'] / self.pms['H0']) / ((1+z)*np.sqrt(self.pms['Omm']*(1+z)**3+(1.-self.pms['Omm'])))
+    
+    def _redshift_to_space(self,zi=0, zf=20, num=10000, proper=False):
+        """Takes in a starting and ending redshift and 
+           returns an array of num redshifts and an array 
+           of their corresponding comoving distances in Mpc."""
+        dz = (zf-zi)/num
+        z0 = np.linspace(0,zi,num=num)
+        if proper: fn0 = self.fp(z0)
+        else:      fn0 = self.fc(z0)    
+        di = sp.integrate.trapz(fn0,z0,dx=dz)
+        z = np.linspace(zi,zf,num=num)
+        if proper: fn = self.fp(z)
+        else:      fn = self.fc(z)
+        d = (di+sp.integrate.cumtrapz(fn,z,dx=dz,initial=0)) / self.pms['mToMpc']
+        return z,d
+    
+    def _space_to_redshift(self,d,zi=5,zf=8,proper=False):
+        """Takes in an array of comoving distances in Mpc and returns 
+           the corresponding array of redshifts."""
+        z0,d0 = self._redshift_to_space(zi=zi,zf=zf,proper=proper)
+        z = np.interp(d, d0, z0)
+        return z
 
-    def convert_z_to_d(self,proper=False):
-        """Get the redshift to distance conversion for the box"""
+    def get_z_d(self,proper=False):
+        """Gets arrays of redshift and comoving distances that 
+           correspond to the coordinates of the box."""
+        z0,d0 = self._redshift_to_space(zi=self.pms['zi'],
+            zf=self.pms['zf'],proper=proper)
+        d = np.linspace(d0[0],d0[-1],self.pms['shape'][2])
+        z = self._space_to_redshift(d,zi=self.pms['zi'],
+            zf=self.pms['zf'],proper=proper)
+        return z,d
 
     def get_xyz_coords(self):
         """Get the physical xyz distance coordinates that 
@@ -141,6 +176,11 @@ if __name__=='__main__':
     print rhobox[0,0,2000]
     print rhobox.slice(2000)[0,0]
     print rhobox.slice(1000).shape
+    z,d = sim.get_z_d()
+    plt.plot(d,z,c='orange')
+    plt.axhline(sim.pms['zi'],c='steelblue')
+    plt.axhline(sim.pms['zf'],c='forestgreen')
+    plt.show()
 
 
 
