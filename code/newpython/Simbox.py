@@ -129,6 +129,14 @@ class Sim:
     def get_xyz_coords(self):
         """Get the physical xyz distance coordinates that 
         correspond to the data box axes"""
+        bsh = self.pms['shape']
+        bMpc = np.array([self.pms['xyMpc'],self.pms['xyMpc'],
+            self.pms['zMpc']])
+        xcd = np.arange(-bMpc[0]/2.,bMpc[0]/2.,float(bMpc[0])/bsh[0])
+        ycd = np.arange(-bMpc[1]/2.,bMpc[1]/2.,float(bMpc[1])/bsh[1])
+        _,zcd = self.get_z_d()
+        return xcd,ycd,zcd
+
 
 #############################################
 # One Data Box
@@ -177,10 +185,13 @@ if __name__=='__main__':
     print rhobox.slice(2000)[0,0]
     print rhobox.slice(1000).shape
     z,d = sim.get_z_d()
-    plt.plot(d,z,c='orange')
-    plt.axhline(sim.pms['zi'],c='steelblue')
-    plt.axhline(sim.pms['zf'],c='forestgreen')
-    plt.show()
+    # plt.plot(d,z,c='orange')
+    # plt.axhline(sim.pms['zi'],c='steelblue')
+    # plt.axhline(sim.pms['zf'],c='forestgreen')
+    # plt.show()
+    xyzcd = sim.get_xyz_coords()
+    print xyzcd[0].shape, xyzcd[1].shape, xyzcd[2].shape
+
 
 
 
