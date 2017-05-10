@@ -66,7 +66,8 @@ class Sim:
         for field in HEADERS.keys():
             #Use magic.py to get the proper files for this box
             flist = match_files(self.data_dir,'{0}*lighttravel'.format(HEADERS[field]))
-            self.box[field] = Box(flist,field)
+            _,_,_,cube_size,_ = nums_from_string(flist[0])
+            self.box[field] = Box(self.data_dir,flist,field,int(cube_size))
         
         # Gets the parameters from the filenames of the last field
         # Note: all fields will have the same parameters
@@ -77,11 +78,11 @@ class Sim:
             zi_list.append(float(zi))
             zf_list.append(float(zf))
             box_zMpc += box_Mpc
-            num_boxes += 1
         self.pms['zi'] = min(zi_list)
         self.pms['zf'] = max(zf_list)
         self.pms['zMpc'] = int(box_zMpc)
         self.pms['xyMpc'] = int(box_Mpc)
+        self.pms['shape'] = (int(box_size),int(box_size),len(flist)*int(box_size))
 
     ##########################
     # redshift
@@ -101,8 +102,15 @@ class Box:
     """This class holds a memmap to a data box that is stored in
     multiple files."""
 
-    def __init__(self,fnames,field):
+    def __init__(self,data_dir,flist,field,cube_size):
         """Creates memmaps to the files"""
+        self.num_cubes = len(flist)
+        self.cubes = np.zeros(self.num_cubes)
+        for ii,f in enumerate(flist):
+            print cube_size
+            self.cubes[ii] = np.memmap('{0}{1}'.format(data_dir,f), 
+                dtype=np.float32, mode='r', 
+                shape=(3,4))
 
     def __getitem__(self,key):
         """Does the array thing, i.e. box[i,j,k]. This will be slow,
@@ -119,6 +127,7 @@ if __name__=='__main__':
     print sim.pms['zf'] 
     print sim.pms['zMpc'] 
     print sim.pms['xyMpc'] 
+    print sim.pms['shape']
 
 
 
