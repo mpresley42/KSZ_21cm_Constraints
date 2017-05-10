@@ -123,6 +123,9 @@ class Box:
 
     def slice(self,k):
         """Picks out one k-slice"""
+        icube = int(k)/self.cube_size
+        kcube = int(k)%self.cube_size
+        return self.cubes[icube][:,:,kcube]
 
 if __name__=='__main__':
     data_dir = '/Users/mpresley/Research/KSZ_21cm_Constraints/data/mesinger_1/original_1_mesinger_1/'
@@ -136,6 +139,8 @@ if __name__=='__main__':
     rhobox = sim.box['density']
     print rhobox[0,0,1000]
     print rhobox[0,0,2000]
+    print rhobox.slice(2000)[0,0]
+    print rhobox.slice(1000).shape
 
 
 
