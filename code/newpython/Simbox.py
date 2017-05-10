@@ -103,9 +103,9 @@ class Box:
     multiple files."""
 
     def __init__(self,data_dir,flist,field,cube_size):
-        """Creates memmaps to the files"""
-        self.num_cubes = len(flist)
-        self.cube_size = cube_size
+        """Creates memmaps to the files"""       
+        self.num_cubes = int(len(flist))
+        self.cube_size = int(cube_size)
         self.cubes = []
         for f in flist:
             self.cubes.append(np.memmap('{0}{1}'.format(data_dir,f), 
@@ -115,6 +115,11 @@ class Box:
     def __getitem__(self,key):
         """Does the array thing, i.e. box[i,j,k]. This will be slow,
         so it is recommended to use slice if possible."""
+        icube = key[2]/self.cube_size
+        ijkcube = (key[0],key[1],key[2]%self.cube_size)
+        print icube, ijkcube
+        return self.cubes[icube][ijkcube]
+
 
     def slice(self,k):
         """Picks out one k-slice"""
@@ -128,6 +133,9 @@ if __name__=='__main__':
     print sim.pms['zMpc'] 
     print sim.pms['xyMpc'] 
     print sim.pms['shape']
+    rhobox = sim.box['density']
+    print rhobox[0,0,1000]
+    print rhobox[0,0,2000]
 
 
 
