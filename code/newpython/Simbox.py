@@ -105,12 +105,12 @@ class Box:
     def __init__(self,data_dir,flist,field,cube_size):
         """Creates memmaps to the files"""
         self.num_cubes = len(flist)
-        self.cubes = np.zeros(self.num_cubes)
-        for ii,f in enumerate(flist):
-            print cube_size
-            self.cubes[ii] = np.memmap('{0}{1}'.format(data_dir,f), 
+        self.cube_size = cube_size
+        self.cubes = []
+        for f in flist:
+            self.cubes.append(np.memmap('{0}{1}'.format(data_dir,f), 
                 dtype=np.float32, mode='r', 
-                shape=(3,4))
+                shape=(self.cube_size,self.cube_size,self.cube_size)))
 
     def __getitem__(self,key):
         """Does the array thing, i.e. box[i,j,k]. This will be slow,
