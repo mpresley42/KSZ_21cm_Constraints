@@ -17,6 +17,7 @@ class Sim:
         """Take in the location of the data and set all of the 
         simulation parameters and inialize the memmaps for the 
         data boxes."""
+        
         self.data_dir = data_dir
         self.run_dir  = self.data_dir.split('/')[-2]
         self.pms = {}
@@ -55,7 +56,6 @@ class Sim:
         
         # Set the parameters from the directory name
         params=self.run_dir.split('_')
-        print params
         for ii in xrange(0,len(params),2):
             self.pms[params[ii]] = float(params[ii+1])
 
@@ -73,7 +73,6 @@ class Sim:
         # Gets the parameters from the filenames of the last field
         # Note: all fields will have the same parameters
         zi_list = []; zf_list = []; box_zMpc = 0; num_boxes = 0
-        print flist
         for f in flist:
             zi,zf,_,box_size,box_Mpc = nums_from_string(f)
             zi_list.append(float(zi))
@@ -94,7 +93,7 @@ class Sim:
     # dr/dz in proper coordinates
     fp = lambda self,z: (self.pms['c'] / self.pms['H0']) / ((1+z)*np.sqrt(self.pms['Omm']*(1+z)**3+(1.-self.pms['Omm'])))
     
-    def _redshift_to_space(self,zi=0, zf=20, num=10000, proper=False):
+    def redshift_to_space(self,zi=0, zf=20, num=10000, proper=False):
         """Takes in a starting and ending redshift and 
            returns an array of num redshifts and an array 
            of their corresponding comoving distances in Mpc."""
@@ -109,20 +108,20 @@ class Sim:
         d = (di+sp.integrate.cumtrapz(fn,z,dx=dz,initial=0)) / self.pms['mToMpc']
         return z,d
     
-    def _space_to_redshift(self,d,zi=5,zf=8,proper=False):
+    def space_to_redshift(self,d,zi=0,zf=20,proper=False):
         """Takes in an array of comoving distances in Mpc and returns 
            the corresponding array of redshifts."""
-        z0,d0 = self._redshift_to_space(zi=zi,zf=zf,proper=proper)
+        z0,d0 = self.redshift_to_space(zi=zi,zf=zf,proper=proper)
         z = np.interp(d, d0, z0)
         return z
 
     def get_z_d(self,proper=False):
         """Gets arrays of redshift and comoving distances that 
            correspond to the coordinates of the box."""
-        z0,d0 = self._redshift_to_space(zi=self.pms['zi'],
+        z0,d0 = self.redshift_to_space(zi=self.pms['zi'],
             zf=self.pms['zf'],proper=proper)
         d = np.linspace(d0[0],d0[-1],self.pms['shape'][2])
-        z = self._space_to_redshift(d,zi=self.pms['zi'],
+        z = self.space_to_redshift(d,zi=self.pms['zi'],
             zf=self.pms['zf'],proper=proper)
         return z,d
 
@@ -160,14 +159,13 @@ class Box:
         so it is recommended to use slice if possible."""
         icube = key[2]/self.cube_size
         ijkcube = (key[0],key[1],key[2]%self.cube_size)
-        print icube, ijkcube
         return self.cubes[icube][ijkcube]
 
     def slice(self,k):
         """Picks out one k-slice"""
         icube = int(k)/self.cube_size
         kcube = int(k)%self.cube_size
-        return self.cubes[icube][:,:,kcube]
+        return np.array(self.cubes[icube][:,:,kcube])
 
 
 if __name__=='__main__':
