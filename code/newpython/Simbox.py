@@ -139,7 +139,7 @@ class Sim:
 
 
 #############################################
-# One Data Box
+# One Data Box (may span multiple files)
 #############################################
 class Box:
     """This class holds a memmap to a data box that is stored in
@@ -163,12 +163,12 @@ class Box:
         print icube, ijkcube
         return self.cubes[icube][ijkcube]
 
-
     def slice(self,k):
         """Picks out one k-slice"""
         icube = int(k)/self.cube_size
         kcube = int(k)%self.cube_size
         return self.cubes[icube][:,:,kcube]
+
 
 if __name__=='__main__':
     data_dir = '/Users/mpresley/Research/KSZ_21cm_Constraints/data/mesinger_1/original_1_mesinger_1/'
