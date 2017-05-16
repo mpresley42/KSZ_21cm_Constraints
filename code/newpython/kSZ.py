@@ -3,6 +3,7 @@ import scipy as sp
 import pylab as plt
 from Simbox import *
 from pspec import *
+import timeit
 
 def compute_tau(sim):
     """Computes the optical depth tau as a function of redshift for 
@@ -27,9 +28,11 @@ def compute_tau(sim):
     # get the fraction of HII particles
     chiHII = np.ones_like(z)
     for kk in xrange(len(d)):
-        print kk
+        start = timeit.default_timer()
         chiHII[kk+len(d0)] = np.average((1.-sim.box['nf'].slice(kk))* \
             (1.+sim.box['density'].slice(kk)))
+        end = timeit.default_timer()
+        print kk, end-start
     print 'have chiHII'
 
     # get the fraction of HeII particles

@@ -167,6 +167,20 @@ class Box:
         kcube = int(k)%self.cube_size
         return np.array(self.cubes[icube][:,:,kcube])
 
+    def slicex(self,i):
+        """Picks out one i-slice"""
+        array_list = []
+        for icube in xrange(self.num_cubes):
+            array_list.append(np.array(self.cubes[icube][i,:,:]))
+        return np.concatenate(array_list)
+
+    def slicey(self,j):
+        """Picks out one j-slice"""
+        array_list = []
+        for icube in xrange(self.num_cubes):
+            array_list.append(np.array(self.cubes[icube][:,j,:]))
+        return np.concatenate(array_list)
+
 
 if __name__=='__main__':
     data_dir = '/Users/mpresley/Research/KSZ_21cm_Constraints/data/mesinger_1/original_1_mesinger_1/'
