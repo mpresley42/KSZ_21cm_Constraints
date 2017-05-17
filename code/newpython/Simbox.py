@@ -1,10 +1,13 @@
 import numpy as np
+import h5py
 import scipy as sp
 import scipy.integrate
 import pylab as plt
 from magic import *
 
-HEADERS = {'density':"updated_smoothed_deltax_",'vx':"updated_vx_",'vy':"updated_vy_",'vz':"updated_vz_",'nf':"xH_nohalos_"} 
+#HEADERS = {'density':"updated_smoothed_deltax_",'vx':"updated_vx_",'vy':"updated_vy_",'vz':"updated_vz_",'nf':"xH_nohalos_"} 
+
+HEADERS = {'density':"updated_smoothed_deltax_",}
 
 #############################################
 # One run of a 21cmFAST simulation
@@ -64,15 +67,11 @@ class Sim:
         the data in memmaps.
         https://docs.scipy.org/doc/numpy/reference/generated/numpy.memmap.html"""
         
-        for field in HEADERS.keys():
-            #Use magic.py to get the proper files for this box
-            flist = match_files(self.data_dir,'{0}*lighttravel'.format(HEADERS[field]))
-            _,_,_,cube_size,_ = nums_from_string(flist[0])
-            self.box[field] = Box(self.data_dir,flist,field,int(cube_size))
         
-        # Gets the parameters from the filenames of the last field
+        # Gets the parameters from the filenames of one of the fields
         # Note: all fields will have the same parameters
         zi_list = []; zf_list = []; box_zMpc = 0; num_boxes = 0
+        flist = match_files(self.data_dir,'{0}*lighttravel'.format(HEADERS.items()[0][1]))
         for f in flist:
             zi,zf,_,box_size,box_Mpc = nums_from_string(f)
             zi_list.append(float(zi))
@@ -83,6 +82,21 @@ class Sim:
         self.pms['zMpc'] = int(box_zMpc)
         self.pms['xyMpc'] = int(box_Mpc)
         self.pms['shape'] = (int(box_size),int(box_size),len(flist)*int(box_size))
+
+        # Create a base file name for the box object hdf5 files
+        #updated_v_zstart005.00000_zend009.56801_FLIPBOXES0_1024_1600Mpc_lighttravel
+        fbase = 'zstart{0}_zend{1}_FLIPBOXES0_{2}_{3}_{4}Mpc_{5}Mpc_lighttravel.hdf5'.format(
+            self.pms['zi'],self.pms['zf'],self.pms['shape'][0],
+            self.pms['shape'][2],self.pms['xyMpc'],self.pms['zMpc'])
+        
+        # Create a dictionary containing the box objects for 
+        # for all of the fields
+        for field in HEADERS.keys():
+            #Use magic.py to get the proper files for this box
+            flist = match_files(self.data_dir,'{0}*lighttravel'.format(HEADERS[field]))
+            fname = '{0}{1}'.format(HEADERS[field],fbase)
+            self.box[field] = Box(self.data_dir,flist,fname,self.pms['shape'])
+
 
     ##########################
     # redshift
@@ -136,50 +150,92 @@ class Sim:
         _,zcd = self.get_z_d()
         return xcd,ycd,zcd
 
-
 #############################################
 # One Data Box (may span multiple files)
+# This version uses h5py
 #############################################
 class Box:
-    """This class holds a memmap to a data box that is stored in
-    multiple files."""
+    """This class hold h5py datasets containing the data box 
+    that is stored in multiple files"""
+    
+    def __init__(self,data_dir,flist,fname,shape):
+        """Creates the h5py dataset for the files"""
+        self.data_dir = data_dir
+        self.fname = fname
 
-    def __init__(self,data_dir,flist,field,cube_size):
-        """Creates memmaps to the files"""       
-        self.num_cubes = int(len(flist))
-        self.cube_size = int(cube_size)
-        self.cubes = []
-        for f in flist:
-            self.cubes.append(np.memmap('{0}{1}'.format(data_dir,f), 
-                dtype=np.float32, mode='r', 
-                shape=(self.cube_size,self.cube_size,self.cube_size)))
+        h5file = h5py.File('{0}{1}'.format(data_dir,fname),"w")
+        dset = h5file.create_dataset("data",shape,dtype='float32')
+        arlist = []
+        for ii,f in enumerate(flist):
+            f0 = np.fromfile('{0}{1}'.format(data_dir,f), 
+                dtype=np.float32).reshape(
+                shape/np.array((1,1,len(flist))))
+            starti = ii*shape[2]/len(flist)
+            endi   = (ii+1)*shape[2]/len(flist)
+            dset[:,:,starti:endi] = f0
+            f0 = None
+        h5file.close()
+        print 'hi'
 
     def __getitem__(self,key):
-        """Does the array thing, i.e. box[i,j,k]. This will be slow,
-        so it is recommended to use slice if possible."""
-        icube = key[2]/self.cube_size
-        ijkcube = (key[0],key[1],key[2]%self.cube_size)
-        return self.cubes[icube][ijkcube]
+        """Does the array thing, i.e. box[i,j,k]."""
+        h5file = h5py.File('{0}{1}'.format(self.data_dir,self.fname),"r")
+        dset = h5file['data']
+        return np.float32(dset[key])
+
 
     def slice(self,k):
         """Picks out one k-slice"""
-        icube = int(k)/self.cube_size
-        kcube = int(k)%self.cube_size
-        return np.array(self.cubes[icube][:,:,kcube])
+        h5file = h5py.File('{0}{1}'.format(self.data_dir,self.fname),"r")
+        dset = h5file['data']
+        return dset[:,:,k]
 
-    def slicex(self,i):
-        """Picks out one i-slice"""
-        array_list = []
-        for icube in xrange(self.num_cubes):
-            array_list.append(np.array(self.cubes[icube][i,:,:]))
-        return np.concatenate(array_list)
 
-    def slicey(self,j):
-        """Picks out one j-slice"""
-        array_list = []
-        for icube in xrange(self.num_cubes):
-            array_list.append(np.array(self.cubes[icube][:,j,:]))
-        return np.concatenate(array_list)
+
+#############################################
+# One Data Box (may span multiple files)
+# This version uses memmap and is very slow
+#############################################
+# class Box:
+#     """This class holds a memmap to a data box that is stored in
+#     multiple files."""
+
+#     def __init__(self,data_dir,flist,cube_size):
+#         """Creates memmaps to the files"""       
+#         self.num_cubes = int(len(flist))
+#         self.cube_size = int(cube_size)
+#         self.cubes = []
+#         for f in flist:
+#             self.cubes.append(np.memmap('{0}{1}'.format(data_dir,f), 
+#                 dtype=np.float32, mode='r', 
+#                 shape=(self.cube_size,self.cube_size,self.cube_size)))
+
+#     def __getitem__(self,key):
+#         """Does the array thing, i.e. box[i,j,k]. This will be slow,
+#         so it is recommended to use slice if possible."""
+#         icube = key[2]/self.cube_size
+#         ijkcube = (key[0],key[1],key[2]%self.cube_size)
+#         return self.cubes[icube][ijkcube]
+
+#     def slice(self,k):
+#         """Picks out one k-slice"""
+#         icube = int(k)/self.cube_size
+#         kcube = int(k)%self.cube_size
+#         return np.array(self.cubes[icube][:,:,kcube])
+
+#     def slicex(self,i):
+#         """Picks out one i-slice"""
+#         array_list = []
+#         for icube in xrange(self.num_cubes):
+#             array_list.append(np.array(self.cubes[icube][i,:,:]))
+#         return np.concatenate(array_list)
+
+#     def slicey(self,j):
+#         """Picks out one j-slice"""
+#         array_list = []
+#         for icube in xrange(self.num_cubes):
+#             array_list.append(np.array(self.cubes[icube][:,j,:]))
+#         return np.concatenate(array_list)
 
 
 if __name__=='__main__':
@@ -196,13 +252,13 @@ if __name__=='__main__':
     print rhobox[0,0,2000]
     print rhobox.slice(2000)[0,0]
     print rhobox.slice(1000).shape
-    z,d = sim.get_z_d()
-    # plt.plot(d,z,c='orange')
-    # plt.axhline(sim.pms['zi'],c='steelblue')
-    # plt.axhline(sim.pms['zf'],c='forestgreen')
-    # plt.show()
-    xyzcd = sim.get_xyz_coords()
-    print xyzcd[0].shape, xyzcd[1].shape, xyzcd[2].shape
+    # z,d = sim.get_z_d()
+    # # plt.plot(d,z,c='orange')
+    # # plt.axhline(sim.pms['zi'],c='steelblue')
+    # # plt.axhline(sim.pms['zf'],c='forestgreen')
+    # # plt.show()
+    # xyzcd = sim.get_xyz_coords()
+    # print xyzcd[0].shape, xyzcd[1].shape, xyzcd[2].shape
 
 
 

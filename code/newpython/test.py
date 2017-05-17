@@ -33,10 +33,11 @@ def test_jslice():
 
 def test_cube_read():
     start = timeit.default_timer()
-    cube1 = np.memmap('/Users/mpresley/Research/KSZ_21cm_Constraints/data/mesinger_1/original_1_mesinger_1/updated_smoothed_deltax__zstart005.00000_zend009.56801_FLIPBOXES0_1024_1600Mpc_lighttravel')
+    fname = '/Users/mpresley/Research/KSZ_21cm_Constraints/data/mesinger_1/original_1_mesinger_1/updated_smoothed_deltax__zstart005.00000_zend009.56801_FLIPBOXES0_1024_1600Mpc_lighttravel'
+    cube1 = np.memmap(fname,shape=(1024,1024,1024))
     #cube1 = np.memmap('/Users/mpresley/Research/KSZ_21cm_Constraints/data/mesinger_1/original_1_mesinger_1/updated_smoothed_deltax__zstart005.00000_zend009.56801_FLIPBOXES0_1024_1600Mpc_lighttravel')
-    cube[:,:,100]
-    cube.close()
+    cube1[:,:,100]
+    cube1.close()
     end = timeit.default_timer()
     print "Time for one cube reading is: {0}".format(end-start)
     return end-start
@@ -53,4 +54,4 @@ if __name__=='__main__':
     #     density = sim.box['density'].slice(kk)
     #     end = timeit.default_timer()
     #     print kk, end-start
-    test_islice()
+    test_cube_read()
