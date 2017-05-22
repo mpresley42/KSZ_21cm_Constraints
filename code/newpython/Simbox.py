@@ -4,10 +4,11 @@ import scipy as sp
 import scipy.integrate
 import pylab as plt
 from magic import *
+import timeit
 
-#HEADERS = {'density':"updated_smoothed_deltax_",'vx':"updated_vx_",'vy':"updated_vy_",'vz':"updated_vz_",'nf':"xH_nohalos_"} 
+HEADERS = {'density':"updated_smoothed_deltax_",'vx':"updated_vx_",'vy':"updated_vy_",'vz':"updated_vz_",'nf':"xH_nohalos_"} 
 
-HEADERS = {'density':"updated_smoothed_deltax_",}
+#HEADERS = {'density':"updated_smoothed_deltax_",}
 
 #############################################
 # One run of a 21cmFAST simulation
@@ -85,7 +86,7 @@ class Sim:
 
         # Create a base file name for the box object hdf5 files
         #updated_v_zstart005.00000_zend009.56801_FLIPBOXES0_1024_1600Mpc_lighttravel
-        fbase = 'zstart{0}_zend{1}_FLIPBOXES0_{2}_{3}_{4}Mpc_{5}Mpc_lighttravel.hdf5'.format(
+        fbase = 'zstart{0}_zend{1}_FLIPBOXES0_{2}_{3}_{4}Mpc_{5}Mpc_lighttravel'.format(
             self.pms['zi'],self.pms['zf'],self.pms['shape'][0],
             self.pms['shape'][2],self.pms['xyMpc'],self.pms['zMpc'])
         
@@ -152,9 +153,9 @@ class Sim:
 
 #############################################
 # One Data Box (may span multiple files)
-# This version uses h5py
+# This version uses h5py and is even slower than memmap
 #############################################
-class Box:
+class Box1:
     """This class hold h5py datasets containing the data box 
     that is stored in multiple files"""
     
@@ -175,11 +176,10 @@ class Box:
             dset[:,:,starti:endi] = f0
             f0 = None
         h5file.close()
-        print 'hi'
 
     def __getitem__(self,key):
         """Does the array thing, i.e. box[i,j,k]."""
-        h5file = h5py.File('{0}{1}'.format(self.data_dir,self.fname),"r")
+        h5file = h5py.File('{0}{1}.hdf5'.format(self.data_dir,self.fname),"r")
         dset = h5file['data']
         return np.float32(dset[key])
 
@@ -196,67 +196,152 @@ class Box:
 # One Data Box (may span multiple files)
 # This version uses memmap and is very slow
 #############################################
-# class Box:
-#     """This class holds a memmap to a data box that is stored in
-#     multiple files."""
+class Box:
+    """This class holds a memmap to a data box that is stored in
+    multiple files."""
 
-#     def __init__(self,data_dir,flist,cube_size):
-#         """Creates memmaps to the files"""       
-#         self.num_cubes = int(len(flist))
-#         self.cube_size = int(cube_size)
-#         self.cubes = []
-#         for f in flist:
-#             self.cubes.append(np.memmap('{0}{1}'.format(data_dir,f), 
-#                 dtype=np.float32, mode='r', 
-#                 shape=(self.cube_size,self.cube_size,self.cube_size)))
+    def __init__(self,data_dir,flist,_,shape):
+        """Creates memmaps to the files"""       
+        # number of cubes inside box
+        self.num_cubes = int(len(flist))
+        # shape of box
+        self.shape = shape
+        self.cube_size = self.shape[2]/self.num_cubes
+        # shape of cube
+        self.cube_shape = (self.shape[0],self.shape[1],self.cube_size)
 
-#     def __getitem__(self,key):
-#         """Does the array thing, i.e. box[i,j,k]. This will be slow,
-#         so it is recommended to use slice if possible."""
-#         icube = key[2]/self.cube_size
-#         ijkcube = (key[0],key[1],key[2]%self.cube_size)
-#         return self.cubes[icube][ijkcube]
+        self.cubes = []
+        for f in flist:
+            self.cubes.append(np.memmap('{0}{1}'.format(data_dir,f), 
+                dtype=np.float32, mode='r', 
+                shape=self.cube_shape))
 
-#     def slice(self,k):
-#         """Picks out one k-slice"""
-#         icube = int(k)/self.cube_size
-#         kcube = int(k)%self.cube_size
-#         return np.array(self.cubes[icube][:,:,kcube])
+    def __getitem__(self,key):
+        """Does the array thing, i.e. box[i,j,k]. This will be slow,
+        so it is recommended to use slice if possible."""
+        icube = key[2]/self.cube_size
+        ijkcube = (key[0],key[1],key[2]%self.cube_size)
+        return self.cubes[icube][ijkcube]
 
-#     def slicex(self,i):
-#         """Picks out one i-slice"""
-#         array_list = []
-#         for icube in xrange(self.num_cubes):
-#             array_list.append(np.array(self.cubes[icube][i,:,:]))
-#         return np.concatenate(array_list)
+    def slice(self,k):
+        """Picks out one k-slice"""
+        icube = int(k)/self.cube_size
+        kcube = int(k)%self.cube_size
+        return np.array(self.cubes[icube][:,:,kcube])
 
-#     def slicey(self,j):
-#         """Picks out one j-slice"""
-#         array_list = []
-#         for icube in xrange(self.num_cubes):
-#             array_list.append(np.array(self.cubes[icube][:,j,:]))
-#         return np.concatenate(array_list)
+    def slicex(self,i):
+        """Picks out one i-slice"""
+        array_list = []
+        for icube in xrange(self.num_cubes):
+            array_list.append(np.array(self.cubes[icube][i,:,:]))
+        return np.concatenate(array_list)
+
+    def slicey(self,j):
+        """Picks out one j-slice"""
+        array_list = []
+        for icube in xrange(self.num_cubes):
+            array_list.append(np.array(self.cubes[icube][:,j,:]))
+        return np.concatenate(array_list)
+
+
+#############################################
+# One Data Box (may span multiple files)
+# This version chunks the files
+#############################################
+class Box3:
+    """This class splits the data box into chunks and only holds one
+    chunk in memory at a time. If you ask for a part of the box not in 
+    the current memory, it dumps the current chunk and replaces it with
+    the new one."""
+
+    def __init__(self,data_dir,flist,fname,shape,num_chunks=8):
+        """Chunks the data and creates a new file
+        for each chunk. Note: num_chunks must be divisible by
+        the number of files """       
+        # directory containing chunked files
+        self.data_dir = data_dir
+        # base file name for the chunk files
+        self.fname = fname
+        # list of file names for the original data boxes
+        self.flist = flist
+        # number of chunks inside box
+        assert num_chunks%len(flist)==0
+        self.num_chunks = num_chunks
+        # shape of entire box
+        self.shape = shape
+        # shape of each chunk
+        self.chunk_shape = (self.shape[0],self.shape[1],
+            self.shape[2]/self.num_chunks)
+        # chunk file name base
+        self.fname = fname
+        
+        # create chunk files
+        self._create_chunks()
+
+        # place-holder for the currently loaded file
+        self.current_chunk = None
+        self.current_index = None
+
+    def _create_chunks(self):
+        """Create the chunked boxes and save the chunks in 
+        their own files."""
+        ii=0
+        for f in self.flist:
+            cube = np.fromfile('{0}{1}'.format(self.data_dir,f), 
+                dtype=np.float32).reshape((self.shape[0],self.shape[1],
+                    self.shape[2]/len(self.flist)))
+            chunk_list = np.split(cube,self.num_chunks/len(self.flist),axis=2)
+            for chunk in chunk_list:
+                np.save('{0}{1}_{2}'.format(self.data_dir,self.fname,ii),chunk)
+                ii+=1
+
+    def __getitem__(self,key):
+        """Does the array thing, i.e. box[i,j,k]. This will be slow,
+        so it is recommended to use slice if possible."""
+        ichunk = key[2]/self.chunk_shape[2]
+        ijkchunk = (key[0],key[1],key[2]%self.chunk_shape[2])
+        print 'index',ichunk, ijkchunk
+        if ichunk!=self.current_index:
+            self.current_index = ichunk
+            self.current_chunk = np.load('{0}{1}_{2}.npy'.format(self.data_dir,self.fname,ichunk))
+        return self.current_chunk[ijkchunk]
+
+
+    def slice(self,k):
+        ichunk = k/self.chunk_shape[2]
+        kchunk = k%self.chunk_shape[2]
+        if ichunk!=self.current_index:
+            self.current_index = ichunk
+            self.current_chunk = np.load('{0}{1}_{2}.npy'.format(self.data_dir,self.fname,ichunk))
+        return self.current_chunk[:,:,kchunk]
 
 
 if __name__=='__main__':
-    data_dir = '/Users/mpresley/Research/KSZ_21cm_Constraints/data/mesinger_1/original_1_mesinger_1/'
+    #data_dir = '/Users/mpresley/Research/KSZ_21cm_Constraints/data/mesinger_1/original_1_mesinger_1/'
+    data_dir = '/Users/mpresley/Research/KSZ_21cm_Constraints/data/small/RandSeed_111_Sigma8_0.81577_h_0.68123_Omm_0.30404_Omb_0.04805_ns_0.96670_Rmfp_35.00_Tvir_60000.0_Squiggly_40.00_lnAs_3.06400/'
+
+    start = timeit.default_timer()
     sim = Sim(data_dir) 
-    print sim.run_dir
-    print sim.pms['zi'] 
-    print sim.pms['zf'] 
-    print sim.pms['zMpc'] 
-    print sim.pms['xyMpc'] 
-    print sim.pms['shape']
-    rhobox = sim.box['density']
-    print rhobox[0,0,1000]
-    print rhobox[0,0,2000]
-    print rhobox.slice(2000)[0,0]
-    print rhobox.slice(1000).shape
+    end = timeit.default_timer()
+    print 'Simbox initialization: ', end-start
+
+
+    # print sim.run_dir
+    # print sim.pms['zi'] 
+    # print sim.pms['zf'] 
+    # print sim.pms['zMpc'] 
+    # print sim.pms['xyMpc'] 
+    # print sim.pms['shape']
+    # rhobox = sim.box['density']
+    # print rhobox[0,0,100]
+    # print rhobox[0,0,200]
+    # print rhobox.slice(200)[0,0]
+    # print rhobox.slice(100).shape
     # z,d = sim.get_z_d()
-    # # plt.plot(d,z,c='orange')
-    # # plt.axhline(sim.pms['zi'],c='steelblue')
-    # # plt.axhline(sim.pms['zf'],c='forestgreen')
-    # # plt.show()
+    # plt.plot(d,z,c='orange')
+    # plt.axhline(sim.pms['zi'],c='steelblue')
+    # plt.axhline(sim.pms['zf'],c='forestgreen')
+    # plt.show()
     # xyzcd = sim.get_xyz_coords()
     # print xyzcd[0].shape, xyzcd[1].shape, xyzcd[2].shape
 
