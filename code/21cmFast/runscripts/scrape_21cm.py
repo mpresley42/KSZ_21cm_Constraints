@@ -1,3 +1,4 @@
+import sys
 import os
 import subprocess
 import fnmatch as fnm
@@ -26,5 +27,9 @@ def scrape_data(location):
 
 if __name__=='__main__':
     #loc = '/scratch1/scratchdirs/mpresley/21cm_FAST_Sims/test6/RandSeed_111_Sigma8_0.81577_h_0.68123_Omm_0.30404_Omb_0.04805_ns_0.96670_Rmfp_35.00_Tvir_60000.0_Squiggly_30.00_lnAs_3.06400/Boxes/'
-    loc = './'
+    #loc = './'
+    if len(sys.argv)==1:
+        loc = './'
+    else:
+        loc = sys.argv[1]
     scrape_data(loc)
