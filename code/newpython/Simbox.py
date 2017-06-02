@@ -151,6 +151,30 @@ class Sim:
         _,zcd = self.get_z_d()
         return xcd,ycd,zcd
 
+    # Create 1D arrays of nx,ny,r coords for the standard box
+    def get_nxnyr_cd(self):
+        """Get the angular nx, ny, r coordinates that correspond
+        to the data box axes"""
+        bsh = self.pms['shape'] 
+        bMpc = np.array([self.pms['xyMpc'],self.pms['xyMpc'],
+            self.pms['zMpc']])
+        lx = bMpc[0]/2.; ly = bMpc[1]/2.; lz = bMpc[2]
+        z,d = self.get_z_d() # z,d for total box
+
+        # back of box -- throws away half the box but whatever
+        df = d[0]+lz 
+        nx_max = lx / np.sqrt(lx*lx+df*df) # nx_min = - nx_max
+        ny_max = ly / np.sqrt(ly*ly+df*df) # ny_min = - ny_max
+        r_max = df/np.sqrt(1. - nx_max*nx_max - ny_max*ny_max)
+        r_min = d[0]/np.sqrt(1. - nx_max*nx_max - ny_max*ny_max) 
+
+        nxcd = np.linspace(-nx_max,nx_max,bsh[0])
+        nycd = np.linspace(-ny_max,ny_max,bsh[1])
+        rcd = np.linspace(r_min,r_max,bsh[2])
+
+        return nxcd,nycd,rcd
+
+
 #############################################
 # One Data Box (may span multiple files)
 # This version uses h5py and is even slower than memmap
@@ -196,7 +220,7 @@ class Box1:
 # One Data Box (may span multiple files)
 # This version uses memmap and is very slow
 #############################################
-class Box:
+class Box2:
     """This class holds a memmap to a data box that is stored in
     multiple files."""
 
@@ -248,7 +272,7 @@ class Box:
 # One Data Box (may span multiple files)
 # This version chunks the files
 #############################################
-class Box3:
+class Box:
     """This class splits the data box into chunks and only holds one
     chunk in memory at a time. If you ask for a part of the box not in 
     the current memory, it dumps the current chunk and replaces it with
@@ -325,6 +349,7 @@ if __name__=='__main__':
     end = timeit.default_timer()
     print 'Simbox initialization: ', end-start
 
+    sim.get_nxnyr_cd()
 
     # print sim.run_dir
     # print sim.pms['zi'] 

@@ -45,15 +45,36 @@ def pad_array(nx,ny,nMap,pdw):
     return nx_pad,ny_pad,nMap_pad
 
 def pad2_array(nx,ny,nMap,pdw):
+    """Pad 2d array with zeros so that it extends to a certain size.
+    Also extends coordinate arrays in a linear fashion to extend to 
+    that size."""
+    
+    # if the pad width is less than the size of the array, then return
+    # the original array
     if pdw <= len(nx): return nx,ny,nMap
     if pdw <= len(ny): return nx,ny,nMap
-    pdx = (pdw - nMap.shape[0])/2.; pdxl=np.ceil(pdx); pdxr=np.floor(pdx)
-    pdy = (pdw - nMap.shape[1])/2.; pdyl=np.ceil(pdy); pdyr=np.floor(pdy)
+    
+    # determine the amount to pad to the left and right
+    # for the x direction
+    pdx = (pdw - nMap.shape[0])/2.
+    pdxl=int(np.ceil(pdx))
+    pdxr=int(np.floor(pdx))
+
+    # determine the amount to pad to the left and right 
+    # for the y direction
+    pdy = (pdw - nMap.shape[1])/2.
+    pdyl=int(np.ceil(pdy))
+    pdyr=int(np.floor(pdy))
+    
+    # pad the 2d array with zeros
     nMap_pad = np.pad(nMap, ((pdxl,pdxr),(pdxl,pdxr)), 'constant', constant_values=0)
+    
+    # pad the x coordinates with a linear extension
     dx=(nx[-1]-nx[0])/(len(nx)-1.); #print dx
-    #nx_pad = np.concatenate((np.arange(nx[0]-pdxl*dx,nx[0],dx),nx,np.arange(nx[-1]+dx,nx[-1]+(pdxr+1)*dx,dx)))
     nx_pad = np.pad(nx,(pdxl,pdxr),'linear_ramp',end_values=(nx[0]-pdxl*dx,nx[-1]+(pdxr+1)*dx))
+    
+    # pad the y coordinates with a linear extension
     dy=(ny[-1]-ny[0])/(len(ny)-1.)
-    #ny_pad = np.concatenate((np.arange(ny[0]-pdyl*dy,ny[0],dy),ny,np.arange(ny[-1]+dy,ny[-1]+(pdyr+1)*dy,dy)))
     ny_pad = np.pad(ny,(pdyl,pdyr),'linear_ramp',end_values=(ny[0]-pdyl*dy,ny[-1]+(pdyr+1)*dy))
+    
     return nx_pad,ny_pad,nMap_pad
