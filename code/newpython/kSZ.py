@@ -4,6 +4,21 @@ import pylab as plt
 from Simbox import *
 from pspec import *
 import timeit
+import sys
+
+def scrape_data(sim):
+    """Collects z, nf, and Tb data from the filenames of 21cmFAST
+    data boxes and writes them to a .dat file."""
+    pattern = 'delta_T_v3_*Mpc'
+    filenames = match_files(sim.data_dir,pattern)
+    wf = open('{0}z_nf_Tb.dat'.format(location),'w')
+    for f in filenames:
+        nums = nums_from_string(f)
+        z = nums[1]
+        nf = nums[2]
+        Tb = nums[9]
+        wf.write('{0} {1} {2}\n'.format(z,nf,Tb))
+    wf.close()
 
 def compute_tau(sim):
     """Computes the optical depth tau as a function of redshift for 
@@ -44,7 +59,6 @@ def compute_tau(sim):
     # save and return tau
     np.save('{0}tau'.format(sim.data_dir),tau)
     return tau
-
 
 def compute_kSZ(sim,tau=None):
     """Computes the kSZ temperature field.
@@ -183,7 +197,14 @@ if __name__=='__main__':
     #data_dir = '/Users/mpresley/Research/KSZ_21cm_Constraints/data/mesinger_1/original_1_mesinger_1/'
     #data_dir = '/Users/mpresley/Research/KSZ_21cm_Constraints/data/small/RandSeed_111_Sigma8_0.81577_h_0.68123_Omm_0.30404_Omb_0.04805_ns_0.96670_Rmfp_35.00_Tvir_60000.0_Squiggly_40.00_lnAs_3.06400/'
 
-    timing_test()
+    if len(sys.argv)==1:
+        data_dir = './'
+    else:
+        data_dir = sys.argv[1]    
+
+    sim = Sim(data_dir)
+    scrape_data(sim)
+    compute_kSZ_pspec(sim)
     
 
 
