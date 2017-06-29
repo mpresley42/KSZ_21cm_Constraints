@@ -1,7 +1,8 @@
 import sys
 import numpy as np
-import scipy as sp
+import scipy.integrate
 from magic import * 
+import pylab as plt
 
 ########################################
 # Parameters
@@ -26,113 +27,124 @@ pms['mToMpc'] = 3.086e22 # meters in a Mpc
 ########################################
 
 # dr/dz in co-moving coordinates
-dRdz = lambda z: (pms['c']/pms['H0'])/np.sqrt(pms['Omm']*(1+z)**3+(1-pms['Omm']))
+drcdz = lambda z: (pms['c']/pms['H0'])/np.sqrt(pms['Omm']*(1+z)**3+(1-pms['Omm']))
+# dr/dz in proper coordinates
+drpdz = lambda z: (pms['c']/pms['H0'])/((1+z)*np.sqrt(pms['Omm']*(1+z)**3+(1-pms['Omm'])))
 
-def z_to_d(z, num=10000):
+def z_to_d(z, num=10000, proper=False, array=False):
     """Takes in a redshift and returns its corresponding 
-    comoving distances in Mpc."""
-    dz = float(zf)/num
+    comoving (or proper) distances in Mpc."""
+    dz = float(z)/num
     z_arr = np.linspace(0,z,num=num)
-    fn = dRdz(z_arr)
-    d = sp.integrate.trapz(fn,z_arr,dx=dz,initial=0)/pms['mToMpc']
-    return d
+    if proper: fn = drpdz(z_arr)
+    else:      fn = drcdz(z_arr)
+    if array:
+        d_arr = scipy.integrate.cumtrapz(fn,z_arr,dx=dz)/pms['mToMpc']
+        return z_arr[:-1], d_arr
+    else:
+        d = np.trapz(fn,z_arr,dx=dz)/pms['mToMpc']
+        return d
 
-def d_to_z(d, zmax=100, num=10000):
-    """Takes in a comoving distance in Mpc which should be before
+def d_to_z(d, zmax=100, num=10000, proper=False):
+    """Takes in a comoving (or proper) distance in Mpc which should be before
     zmax and returns the corresponding redshift."""
-    z0,d0 = z_to_d(zmax, num=num)
+    z0,d0 = z_to_d(zmax, num=num, proper=proper, array=True)
     z = np.interp(d, d0, z0)
     return z
 
 ########################################
-# Initialize First Box
+# Initialize Box Distance/Redshift Data
 ########################################
 
-# open the box list file
+# get list of boxes from file
 boxlist_fname = sys.argv[2]
 flist = open(boxlist_fname,'r').read().splitlines()
 
-# get the first box's name
-boxfname = flist[0]
+# get a list of the redshifts of each box
+zlist = np.zeros((len(flist),))
+for ii,boxfname in enumerate(flist):
+    # get the redshift, box size, and box size in Mpc from the filename
+    fname_params = nums_from_string(boxfname)
+    zlist[ii] = float(fname_params[0])
+    box_size = int(fname_params[-2])
+    box_size_Mpc = int(fname_params[-1])
+    box_shape = (box_size,box_size,box_size)
+    box_shape_Mpc = (box_size_Mpc,box_size_Mpc,box_size_Mpc)
+    prefix = boxfname.split('_z')[0]
+print 'zlist = ',zlist
 
-# get the prefix of the filename
-prefix = boxfname.split('_z')[0]
+# get a list of the co-moving distances of each box
+dclist = np.zeros((len(flist),box_size))
+for ii,boxz in enumerate(zlist):
+    dc0 = z_to_d(boxz)
+    dcbox = dc0 + np.arange(-box_size_Mpc/2.,box_size_Mpc/2.,
+        float(box_size_Mpc)/box_size)
+    dclist[ii,:] = dcbox
+print 'dclist[:,0] = ',dclist[:,0]
 
-# get the redshift, box size, and box size in Mpc from the filename
-fname_params = nums_from_string(boxfname)
-z1 = float(fname_params[0])
-box_size = int(fname_params[-2])
-box_size_Mpc = int(fname_params[-1])
-box_shape = (box_size,box_size,box_size)
-box_shape_Mpc = (box_size_Mpc,box_size_Mpc,box_size_Mpc)
+########################################
+# Create the Interpolated Box
+########################################
 
-# read in the first box
-box1 = np.fromfile(boxfname,dtype=np.float32).reshape(box_shape)
+interp_box = np.zeros((box_size,box_size,len(flist)*box_size))
+interp_dc = np.linspace(dclist[0,0],dclist[-1,-1],len(flist)*box_size)
+print interp_dc[0],interp_dc[-1]
+print (interp_dc[-1] - interp_dc[0])/(len(flist)*box_size)
 
-# initialize the interpolated box
-#interp_box_shape = (box_size,box_size,box_size*len(flist))
-#interp_box_shape_Mpc = (box_size_Mpc,box_size_Mpc,box_size_Mpc*len(flist))
-interp_box_shape = box_shape
-interp_box_shape_Mpc = box_shape_Mpc
-interp_box = np.zeros(interp_box_shape,dtype=np.float32)
-print 'interp_box_shape = ',interp_box_shape
-print 'interp_box_shape_Mpc = ',interp_box_shape_Mpc
+# plt.plot(interp_dc,np.ones_like(interp_dc),label='interp_dc')
+# for ii in xrange(dclist.shape[0]):
+#     plt.plot(dclist[ii,:],(ii+2)*np.ones_like(dclist[ii,:]),label='box {0}'.format(ii))
+# plt.legend()
+# plt.show()
 
-
-# set the spatial increment of all the boxes
-dR = float(box_size_Mpc)*pms['mToMpc']/box_size # meters
-print 'dR = {0} Mpc'.format(float(box_size_Mpc)/box_size)
-
-# set the initial z of the interpolated box
-zstart = z1
-z = zstart
+# quit()
 
 ########################################
 # Main Program Loop 
 ########################################
 
-kk = 0
-# loop over all of the boxes
-for boxfname in flist[1:]:
-    # get the second redshift
-    z2 = nums_from_string(boxfname)[0]
-    print "z1 = {0}, z2 = {1}".format(z1,z2)
+weight_sum = np.zeros_like(interp_dc)
+# loop over all of the original files
+for jj in xrange(len(flist)):
+    print 'Now on box ',jj
+    # load the box
+    boxj = np.fromfile(flist[jj],dtype=np.float32).reshape(box_shape)
     
-    # read in the second box
-    box2 = np.fromfile(boxfname,dtype=np.float32).reshape(box_shape)
+    # loop over the interpolated box
+    for kk in xrange(len(interp_dc)):
+        
+        # find the redshift at this slice of the interpolated box
+        zk = d_to_z(interp_dc[kk])
 
-    # increment over z until next box pair
-    while z<z2:
-        # increment z
-        z += dR/dRdz(z) 
-        # print 'dRdz = ',dRdz(z)
-        # print "z = ",z
+        # find index of closest slice, assuming the boxes are periodic
+        close_id = kk%box_size #np.argmin(np.abs(dclist[jj,:]-interp_dc[kk]))
 
-        # find closest slice from box1
-        s1 = box1[:,:,kk]
+        # assign the weight
+        weight = 1./np.abs(zk-zlist[jj]) #1./np.abs(interp_dc[kk] - dclist[jj,close_id])
+        if np.isinf(weight): weight = 10.
+        #print zk, weight
 
-        # find closest slice from box2
-        s2 = box2[:,:,kk]
+        # add slice to weighted average
+        interp_box[:,:,kk] += weight*boxj[:,:,close_id]
 
-        # add linear interpolation between slices to the interpolated box
-        interp_box[:,:,kk] = (s2-s1)*((z-z1)/(z2-z1))+s1
-        #print interp_box[100,100,kk]
-        kk += 1
-        # check if we've filled up the interpolated box
-        if kk==interp_box_shape[-1]:
-            # write out the box 
-            zend = z
-            interp_fname = '{0}_zstart{1:.3f}_zend{2:.3f}_FLIPBOXES42_{3}_{4}_lighttravel'.format(
-                prefix,zstart,zend,box_size,box_size_Mpc)
-            interp_box.tofile(interp_fname)
-            print "Wrote out interpolated box with zstart = {0:.3f} and zend = {1:.3f}".format(zstart,zend)
-            interp_box = np.zeros(interp_box_shape,dtype=np.float32)
-            # reset counts
-            zstart = zend 
-            kk = 0
-    # make the second box the first box
-    z1 = z2
-    box1 = box2
+        # add weight to the weight sum 
+        weight_sum[kk] += weight
+
+# divide by the sum of weights to get the weighted average
+interp_box = interp_box / weight_sum
+
+########################################
+# Save Data 
+########################################
+
+# create the filename for interpolated data
+interp_fname = '{0}_zstart{1:.3f}_zend{2:.3f}_FLIPBOXES42_{3}_{4}_{5}_{6:.2f}_lighttravel'.format(
+                prefix,zlist[0],zlist[-1],interp_box.shape[0],interp_box.shape[2],
+                box_size_Mpc,interp_dc[-1]-interp_dc[0])
+print 'Saved to file: ',interp_fname
+
+# save the interpolated box
+interp_box.astype(np.float32).tofile(interp_fname)
 
 
 
