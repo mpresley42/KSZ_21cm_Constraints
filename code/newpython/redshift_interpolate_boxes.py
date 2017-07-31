@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import scipy.integrate
 from magic import * 
-import pylab as plt
+#import pylab as plt
 
 ########################################
 # Get Command-line Arguments
@@ -149,6 +149,7 @@ interp_box = interp_box / weight_sum
 
 # split interpolated data into chunks
 interp_chunks = np.split(interp_box,flen,axis=2)
+interp_box=None
 
 # save each chunk separately
 for ii,chunk in enumerate(interp_chunks):
@@ -156,7 +157,7 @@ for ii,chunk in enumerate(interp_chunks):
     # interp_fname = '{0}_zstart{1:.3f}_zend{2:.3f}_FLIPBOXES42_{3}_{4}_{5}_{6:.2f}_lighttravel'.format(
     #                 prefix,zlist[0],zlist[-1],interp_box.shape[0],interp_box.shape[2],
     #                 box_size_Mpc,interp_dc[-1]-interp_dc[0])
-    interp_fname = '{0}_zstart{1:.3f}_zend{2:.3f}_FLIPBOXES42_{3}_{4}_{5:.2f}_lighttravel'.format(
+    interp_fname = '{0}_zstart{1:06.2f}_zend{2:06.2f}_FLIPBOXES42_{3}_{4}_{5:.2f}_lighttravel'.format(
                     prefix,interp_z[ii*box_size],interp_z[(ii+1)*box_size-1],box_size,
                     box_size_Mpc,interp_dc[(ii+1)*box_size-1]-interp_dc[ii*box_size])
     print 'Saved to file: ',interp_fname
