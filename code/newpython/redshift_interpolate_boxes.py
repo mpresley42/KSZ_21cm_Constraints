@@ -15,6 +15,9 @@ param_file = sys.argv[1]
 boxlist_fname = sys.argv[2]
 flist = open(boxlist_fname,'r').read().splitlines()
 
+# get number of interp boxes
+interp_num = int(sys.argv[3])
+
 
 ########################################
 # Get Cosmo Parameters
@@ -37,18 +40,30 @@ pms['mToMpc'] = 3.086e22 # meters in a Mpc
 # Redshift-Space Conversion
 ########################################
 
+# # dr/dz in co-moving coordinates
+# drdz = lambda z: (pms['c']/pms['H0']/pms['mToMpc'])/np.sqrt((1-pms['Omm'])+pms['Omm']*(1+z)**3)
+# def z_to_d(z, array=False):
+#     if array:
+    
+#     else:
+#         return scipy.integrate.quad(drdz, 0, z)[0]
+
+# def d_to_z(d, zmax=100, num=10000, proper=False):
+#     """Takes in a comoving (or proper) distance in Mpc which should be before
+#     zmax and returns the corresponding redshift."""
+#     z0,d0 = z_to_d(zmax)
+#     z = np.interp(d, d0, z0)
+#     return z
+
 # dr/dz in co-moving coordinates
 drcdz = lambda z: (pms['c']/pms['H0'])/np.sqrt(pms['Omm']*(1+z)**3+(1-pms['Omm']))
-# dr/dz in proper coordinates
-drpdz = lambda z: (pms['c']/pms['H0'])/((1+z)*np.sqrt(pms['Omm']*(1+z)**3+(1-pms['Omm'])))
 
-def z_to_d(z, num=10000, proper=False, array=False):
+def z_to_d(z, num=10000, array=False):
     """Takes in a redshift and returns its corresponding 
     comoving (or proper) distances in Mpc."""
     dz = float(z)/num
     z_arr = np.linspace(0,z,num=num)
-    if proper: fn = drpdz(z_arr)
-    else:      fn = drcdz(z_arr)
+    fn = drcdz(z_arr)
     if array:
         d_arr = scipy.integrate.cumtrapz(fn,z_arr,dx=dz)/pms['mToMpc']
         return z_arr[:-1], d_arr
@@ -56,10 +71,10 @@ def z_to_d(z, num=10000, proper=False, array=False):
         d = np.trapz(fn,z_arr,dx=dz)/pms['mToMpc']
         return d
 
-def d_to_z(d, zmax=100, num=10000, proper=False):
+def d_to_z(d, zmax=100, num=10000):
     """Takes in a comoving (or proper) distance in Mpc which should be before
     zmax and returns the corresponding redshift."""
-    z0,d0 = z_to_d(zmax, num=num, proper=proper, array=True)
+    z0,d0 = z_to_d(zmax, num=num, array=True)
     z = np.interp(d, d0, z0)
     return z
 
@@ -80,6 +95,7 @@ for ii,boxfname in enumerate(flist):
     box_shape_Mpc = (box_size_Mpc,box_size_Mpc,box_size_Mpc)
     prefix = boxfname.split('_z')[0]
 print 'zlist = ',zlist
+box_res = box_size_Mpc / float(box_size)
 
 # get a list of the co-moving distances of each box
 dclist = np.zeros((flen,box_size))
@@ -94,10 +110,10 @@ print 'dclist[:,0] = ',dclist[:,0]
 # Create the Interpolated Box
 ########################################
 
-interp_box = np.zeros((box_size,box_size,flen*box_size))
-interp_dc = np.linspace(dclist[0,0],dclist[-1,-1],flen*box_size)
+interp_box = np.zeros((box_size,box_size,interp_num*box_size))
+interp_dc = np.linspace(dclist[0,0],dclist[-1,-1],interp_num*box_size)
 print interp_dc[0],interp_dc[-1]
-print (interp_dc[-1] - interp_dc[0])/(flen*box_size)
+print (interp_dc[-1] - interp_dc[0])/(interp_num*box_size)
 
 # plt.plot(interp_dc,np.ones_like(interp_dc),label='interp_dc')
 # for ii in xrange(dclist.shape[0]):
@@ -127,11 +143,12 @@ for jj in xrange(flen):
         interp_z[kk] = zk
 
         # find index of closest slice, assuming the boxes are periodic
-        close_id = kk%box_size #np.argmin(np.abs(dclist[jj,:]-interp_dc[kk]))
+        close_id = int((interp_dc[kk]-dclist[jj,0])/box_res)%box_size
+        #close_id = kk%box_size #np.argmin(np.abs(dclist[jj,:]-interp_dc[kk]))
 
         # assign the weight
         weight = 1./np.abs(zk-zlist[jj]) #1./np.abs(interp_dc[kk] - dclist[jj,close_id])
-        if np.isinf(weight): weight = 10.
+        if np.isinf(weight): weight = 10000.
         #print zk, weight
 
         # add slice to weighted average
@@ -148,7 +165,7 @@ interp_box = interp_box / weight_sum
 ########################################
 
 # split interpolated data into chunks
-interp_chunks = np.split(interp_box,flen,axis=2)
+interp_chunks = np.split(interp_box,interp_num,axis=2)
 interp_box=None
 
 # save each chunk separately
